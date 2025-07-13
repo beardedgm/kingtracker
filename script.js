@@ -252,6 +252,12 @@ function getStructureCategory(structure) {
   return structure.traits[0];
 }
 
+function getBlockIndex(lotIndex, gridSize) {
+  const x = lotIndex % gridSize;
+  const y = Math.floor(lotIndex / gridSize);
+  return Math.floor(x / 3) + Math.floor(y / 3) * (gridSize / 3);
+}
+
 const AVAILABLE_STRUCTURES = [
     // --- ONE-LOT BUILDINGS ---
     {
@@ -1391,7 +1397,7 @@ const KingdomService = {
             settlement.lots
                 .map((lot, idx) => ({ lotIndex: idx, structureName: lot.structureName }))
                 .filter(l => l.structureName)
-                .map(l => Math.floor(l.lotIndex / 4))
+                .map(l => getBlockIndex(l.lotIndex, settlement.gridSize))
         ).size;
 
         let settlementBaseConsumption = 1; // Default Village
@@ -1514,7 +1520,7 @@ calculateControlDC() {
     const blockIndices = new Set();
     settlement.lots.forEach((lot, idx) => {
       if (lot.structureName) {
-        blockIndices.add(Math.floor(idx / settlement.gridSize));
+        blockIndices.add(getBlockIndex(idx, settlement.gridSize));
       }
     });
     const blocks = blockIndices.size;
@@ -1533,7 +1539,7 @@ calculateControlDC() {
     const builtBlockIndices = new Set();
     settlement.lots.forEach((lot, idx) => {
       if (lot.structureName) {
-        builtBlockIndices.add(Math.floor(idx / settlement.gridSize));
+        builtBlockIndices.add(getBlockIndex(idx, settlement.gridSize));
       }
     });
     const builtBlocks = builtBlockIndices.size;
@@ -1545,7 +1551,7 @@ calculateControlDC() {
     const blockIndices = new Set();
     settlement.lots.forEach((lot, idx) => {
       if (lot.structureName) {
-        blockIndices.add(Math.floor(idx / settlement.gridSize));
+        blockIndices.add(getBlockIndex(idx, settlement.gridSize));
       }
     });
     const builtBlocks = blockIndices.size;
