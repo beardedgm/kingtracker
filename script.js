@@ -1570,10 +1570,16 @@ const SaveService = {
           kingdom = activeKingdomData.kingdom;
           history = activeKingdomData.history || [];
           turnData = activeKingdomData.turnData || {};
-          turnData.claimHexAttempts = turnData.claimHexAttempts || 0;
-          turnData.leadershipActivitiesUsed = turnData.leadershipActivitiesUsed || 0;
-          turnData.regionActivitiesUsed = turnData.regionActivitiesUsed || 0;
-          turnData.civicActivitiesUsed = turnData.civicActivitiesUsed || 0;
+          turnData.claimHexAttempts = parseInt(turnData.claimHexAttempts, 10) || 0;
+          turnData.leadershipActivitiesUsed = parseInt(turnData.leadershipActivitiesUsed, 10) || 0;
+          turnData.regionActivitiesUsed = parseInt(turnData.regionActivitiesUsed, 10) || 0;
+          turnData.civicActivitiesUsed = parseInt(turnData.civicActivitiesUsed, 10) || 0;
+          for (const category in KINGDOM_ACTIVITIES) {
+            KINGDOM_ACTIVITIES[category].forEach(name => {
+              const k = `activity_${name.replace(/\s+/g, '_')}`;
+              turnData[k] = parseInt(turnData[k], 10) || 0;
+            });
+          }
         } else {
           const firstKingdomId = Object.keys(appState.kingdoms)[0];
           if (firstKingdomId) {
@@ -1791,7 +1797,7 @@ const TurnService = {
     for (const category in KINGDOM_ACTIVITIES) {
       KINGDOM_ACTIVITIES[category].forEach(activityName => {
         const key = `activity_${activityName.replace(/\s+/g, '_')}`;
-        turnData[key] = false;
+        turnData[key] = 0;
       });
     }
     UI.renderTurnTracker();
@@ -2223,10 +2229,18 @@ const UI = {
       activitiesHtml += '<div class="uk-grid-small uk-child-width-1-2@s" uk-grid>';
       KINGDOM_ACTIVITIES[category].forEach(activityName => {
         const key = `activity_${activityName.replace(/\s+/g, '_')}`;
-        const isChecked = turnData[key] ? 'checked' : '';
+        const value = turnData[key] || 0;
+        let canIncrease = true;
+        if (activityName === 'Claim Hex') canIncrease = TurnService.canAttemptClaimHex();
+        else if (category === 'leadership') canIncrease = TurnService.canAttemptLeadershipActivity();
+        else if (category === 'region') canIncrease = TurnService.canAttemptRegionActivity();
+        else if (category === 'civic') canIncrease = TurnService.canAttemptCivicActivity();
         activitiesHtml += `
           <div>
-            <label><input class="uk-checkbox" type="checkbox" data-key="${key}" ${isChecked}> ${activityName}</label>
+            <span class="uk-margin-small-right">${activityName}</span>
+            <button class="uk-button uk-button-default uk-button-small" data-activity="${key}" data-action="decrease" ${value <= 0 ? 'disabled' : ''}>-</button>
+            <input class="uk-input uk-form-width-small uk-form-small" type="number" min="0" data-key="${key}" value="${value}">
+            <button class="uk-button uk-button-default uk-button-small" data-activity="${key}" data-action="increase" ${canIncrease ? '' : 'disabled'}>+</button>
           </div>`;
       });
       activitiesHtml += '</div>';
@@ -3328,6 +3342,15 @@ const EventHandlers = {
     UI.renderKingdomSheet();
   },
 
+  handleActivityUpdate(activityKey, action) {
+    const input = document.querySelector(`input[data-key='${activityKey}']`);
+    if (!input) return;
+    let value = parseInt(input.value, 10) || 0;
+    value = action === 'increase' ? value + 1 : Math.max(0, value - 1);
+    input.value = value;
+    this.handleTurnDataUpdate({ target: input, });
+  },
+
   handleLevelUp() {
     if (kingdom.xp < CONFIG.XP_CAP) {
       ErrorHandler.showError("Not enough XP to level up.");
@@ -3356,40 +3379,57 @@ const EventHandlers = {
   handleTurnDataUpdate(e) {
     const { key } = e.target.dataset;
     if (!key) return;
-    if (e.target.type === "checkbox") {
-      const checked = e.target.checked;
-      if (key.startsWith("activity_")) {
-        const activityName = key.substring(9).replace(/_/g, " ");
-        let category = null;
-        for (const cat in KINGDOM_ACTIVITIES) {
-          if (KINGDOM_ACTIVITIES[cat].includes(activityName)) { category = cat; break; }
-        }
 
-        let allowed = true;
-        if (activityName === "Claim Hex") {
-          allowed = TurnService.canAttemptClaimHex();
-          if (allowed && checked) turnData.claimHexAttempts++;
-          else if (!checked && turnData.claimHexAttempts > 0) turnData.claimHexAttempts--;
-        } else if (category === "leadership") {
-          allowed = TurnService.canAttemptLeadershipActivity();
-          if (allowed && checked) turnData.leadershipActivitiesUsed++;
-          else if (!checked && turnData.leadershipActivitiesUsed > 0) turnData.leadershipActivitiesUsed--;
-        } else if (category === "region") {
-          allowed = TurnService.canAttemptRegionActivity();
-          if (allowed && checked) turnData.regionActivitiesUsed++;
-          else if (!checked && turnData.regionActivitiesUsed > 0) turnData.regionActivitiesUsed--;
-        } else if (category === "civic") {
-          allowed = TurnService.canAttemptCivicActivity();
-          if (allowed && checked) turnData.civicActivitiesUsed++;
-          else if (!checked && turnData.civicActivitiesUsed > 0) turnData.civicActivitiesUsed--;
-        }
-
-        if (!allowed && checked) {
-          e.target.checked = false;
-          UIkit.notification({ message: 'No attempts remaining for this activity.', status: 'danger' });
-          return;
-        }
+    if (key.startsWith("activity_")) {
+      let value = parseInt(e.target.value, 10);
+      if (isNaN(value) || value < 0) value = 0;
+      const oldValue = turnData[key] || 0;
+      const activityName = key.substring(9).replace(/_/g, " ");
+      let category = null;
+      for (const cat in KINGDOM_ACTIVITIES) {
+        if (KINGDOM_ACTIVITIES[cat].includes(activityName)) { category = cat; break; }
       }
+
+      let diff = value - oldValue;
+      const increment = () => {
+        if (activityName === "Claim Hex") {
+          if (!TurnService.canAttemptClaimHex()) return false;
+          turnData.claimHexAttempts++;
+        } else if (category === "leadership") {
+          if (!TurnService.canAttemptLeadershipActivity()) return false;
+          turnData.leadershipActivitiesUsed++;
+        } else if (category === "region") {
+          if (!TurnService.canAttemptRegionActivity()) return false;
+          turnData.regionActivitiesUsed++;
+        } else if (category === "civic") {
+          if (!TurnService.canAttemptCivicActivity()) return false;
+          turnData.civicActivitiesUsed++;
+        }
+        return true;
+      };
+      const decrement = () => {
+        if (activityName === "Claim Hex" && turnData.claimHexAttempts > 0) turnData.claimHexAttempts--;
+        else if (category === "leadership" && turnData.leadershipActivitiesUsed > 0) turnData.leadershipActivitiesUsed--;
+        else if (category === "region" && turnData.regionActivitiesUsed > 0) turnData.regionActivitiesUsed--;
+        else if (category === "civic" && turnData.civicActivitiesUsed > 0) turnData.civicActivitiesUsed--;
+      };
+
+      if (diff > 0) {
+        for (let i = 0; i < diff; i++) {
+          if (!increment()) {
+            value = oldValue + i;
+            UIkit.notification({ message: 'No attempts remaining for this activity.', status: 'danger' });
+            break;
+          }
+        }
+      } else if (diff < 0) {
+        for (let i = 0; i < -diff; i++) decrement();
+      }
+
+      turnData[key] = value;
+      e.target.value = value;
+      UI.renderTurnTracker();
+    } else if (e.target.type === "checkbox") {
       turnData[key] = e.target.checked;
     } else if (e.target.type === "number") {
       turnData[key] = parseInt(e.target.value, 10) || 0;
@@ -3455,6 +3495,12 @@ initEventListeners() {
         if(turnTrackerContent) {
             turnTrackerContent.addEventListener("click", (e) => {
                 try {
+                    const activityBtn = e.target.closest('button[data-activity]');
+                    if (activityBtn) {
+                        this.handleActivityUpdate(activityBtn.dataset.activity, activityBtn.dataset.action);
+                        return;
+                    }
+
                     const targetId = e.target.id;
                     if (targetId === "clear-turn-btn") TurnService.clearTurn();
                     else if (targetId === "save-turn-btn") TurnService.saveTurn();
