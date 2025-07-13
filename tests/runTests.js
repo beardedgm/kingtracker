@@ -15,6 +15,7 @@ const {
 global.UIkit = { notification: () => {}, modal: { confirm: () => Promise.resolve({}), alert: () => Promise.resolve({}) } };
 global.UI = { renderTurnTracker: () => {}, renderAll: () => {} };
 global.localStorage = { getItem: () => null, setItem: () => {} };
+// No DOM in test environment
 
 function createSettlement(gridSize, lots) {
   return { gridSize, lots };
@@ -134,6 +135,35 @@ function testPhaseOrder() {
   assert.strictEqual(getTurnData().eventChecked, false, 'checkForEvent blocked');
 }
 
+function testPhaseProgression() {
+  setupBasicKingdom(1);
+  setTurnData({
+    currentPhase: 'upkeep',
+    currentStep: 1,
+    rolledResources: false,
+    paidConsumption: false,
+    appliedUnrest: false,
+    eventChecked: false,
+    claimHexAttempts: 0,
+    leadershipActivitiesUsed: 0,
+    regionActivitiesUsed: 0,
+    civicActivitiesUsed: 0,
+    turnResourcePoints: 0,
+    turnUnrest: 0
+  });
+  assert.strictEqual(getTurnData().currentPhase, 'upkeep');
+  assert.strictEqual(getTurnData().currentStep, 1);
+
+  TurnService.rollResources();
+  assert.strictEqual(getTurnData().currentStep, 2);
+
+  TurnService.payConsumption();
+  assert.strictEqual(getTurnData().currentStep, 3);
+
+  TurnService.applyUpkeepEffects();
+  assert.strictEqual(getTurnData().currentPhase, 'activity');
+}
+
 function setupInfrastructureKingdom() {
   setKingdom({
     level: 1,
@@ -217,6 +247,7 @@ try {
   testCanAttemptClaimHex();
   testCanAttemptLeadershipActivity();
   testPhaseOrder();
+  testPhaseProgression();
   testInfrastructurePlacement();
   testCanUpgradeSettlement();
   console.log('All tests passed.');
