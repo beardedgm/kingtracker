@@ -1362,17 +1362,17 @@ const KingdomService = {
 
     // Base consumption from settlements
     kingdom.settlements.forEach(settlement => {
-        const builtBlockIndices = new Set();
-        settlement.lots.forEach((lot, idx) => {
-            if (lot.structureName) {
-                builtBlockIndices.add(Math.floor(idx / settlement.gridSize));
-            }
-        });
-        const builtBlocks = builtBlockIndices.size;
-        let settlementBaseConsumption = 1; // Village
-        if (builtBlocks >= 9) settlementBaseConsumption = 6; // Metropolis
-        else if (builtBlocks >= 4) settlementBaseConsumption = 4; // City
-        else if (builtBlocks >= 2) settlementBaseConsumption = 2; // Town
+        const builtBlocks = new Set(
+            settlement.lots
+                .map((lot, idx) => ({ lotIndex: idx, structureName: lot.structureName }))
+                .filter(l => l.structureName)
+                .map(l => Math.floor(l.lotIndex / 4))
+        ).size;
+
+        let settlementBaseConsumption = 1; // Default Village
+        if (builtBlocks >= 10) settlementBaseConsumption = 6; // Metropolis (10+ blocks)
+        else if (builtBlocks >= 9) settlementBaseConsumption = 4; // City (9 blocks)
+        else if (builtBlocks >= 4) settlementBaseConsumption = 2; // Town (4 blocks)
         totalConsumption += settlementBaseConsumption;
     });
 
