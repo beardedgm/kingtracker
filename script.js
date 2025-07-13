@@ -1526,6 +1526,28 @@ calculateControlDC() {
     const builtBlocks = builtBlockIndices.size;
 
     return residentialLots < builtBlocks;
+  },
+
+  canUpgradeSettlement(settlement, targetType) {
+    const blockIndices = new Set();
+    settlement.lots.forEach((lot, idx) => {
+      if (lot.structureName) {
+        blockIndices.add(Math.floor(idx / settlement.gridSize));
+      }
+    });
+    const builtBlocks = blockIndices.size;
+
+    if (this.isSettlementOvercrowded(settlement)) return false;
+
+    const type = targetType.toLowerCase();
+    if (type === 'town') {
+      return kingdom.level >= 3 && builtBlocks >= 4;
+    } else if (type === 'city') {
+      return kingdom.level >= 8 && builtBlocks >= 9;
+    } else if (type === 'metropolis') {
+      return kingdom.level >= 15 && builtBlocks >= 10;
+    }
+    return false;
   }
 };
 
