@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en" >
+<head>
+  <meta charset="UTF-8">
+  <title>Kingdom Sheet v5.2?</title>
+  <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/uikit@3.21.5/dist/css/uikit.min.css'><link rel="stylesheet" href="./style.css">
+
+</head>
+<body>
+<!-- partial:index.partial.html -->
+<div class="uk-container">
+
+        <!-- App Header -->
+        <header class="uk-margin-bottom">
+            <h1 class="uk-heading-medium">Kingdom Tracker</h1>
+            <p class="uk-text-lead">A web application for managing your Pathfinder 2e kingdom, based on your Google Sheet.</p>
+        </header>
+
+        <!-- Main Tab Navigation -->
+<ul id="main-tabs" uk-tab>
+    <li class="uk-active"><a href="#">Kingdom Sheet</a></li>
+    <li><a href="#">Skills & Feats</a></li>
+    <li><a href="#">Turn Tracker</a></li>
+    <li><a href="#">History</a></li>
+    <li><a href="#">Settlements</a></li>
+    <li><a href="#">Armies</a></li>
+    <li><a href="#">Kingdom Management</a></li>
+</ul>
+
+        <!-- Tab Content Area -->
+<ul class="uk-switcher uk-margin">
+
+    <li>
+        <div id="kingdom-sheet-content" class="uk-card uk-card-default uk-card-body">
+            </div>
+    </li>
+    
+    <li>
+        <div id="skills-feats-content" class="uk-card uk-card-default uk-card-body">
+            </div>
+    </li>
+
+    <li>
+        <div id="turn-tracker-content" class="uk-card uk-card-default uk-card-body">
+            </div>
+    </li>
+
+    <li>
+        <div id="history-content" class="uk-card uk-card-default uk-card-body">
+            </div>
+    </li>
+
+    <li>
+        <div id="settlements-content" class="uk-card uk-card-default uk-card-body">
+            </div>
+    </li>
+    
+    <li>
+        <div id="armies-content" class="uk-card uk-card-default uk-card-body">
+            </div>
+    </li>
+
+    <li>
+        <div id="kingdom-management-content" class="uk-card uk-card-default uk-card-body">
+            </div>
+    </li>
+
+</ul>
+
+    </div>
+<!-- partial -->
+  <script src='https://cdn.jsdelivr.net/npm/uikit@3.21.5/dist/js/uikit.min.js'></script>
+<script src='https://cdn.jsdelivr.net/npm/uikit@3.21.5/dist/js/uikit-icons.min.js'></script><script type="module" src="./script.js"></script>
+
+</body>
+</html>
