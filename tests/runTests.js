@@ -39,12 +39,12 @@ function testOvercrowding() {
   settlement.lots[0] = lotWith(houses);
   assert.strictEqual(KingdomService.isSettlementOvercrowded(settlement), false, 'single residential covers first block');
 
-  // Add a non-residential structure in a different row
-  settlement.lots[6] = lotWith(mill);
+  // Add a non-residential structure in a different block
+  settlement.lots[18] = lotWith(mill);
   assert.strictEqual(KingdomService.isSettlementOvercrowded(settlement), true, 'non-residential in new block causes overcrowding');
 
   // Add another residential structure to cover second block
-  settlement.lots[6] = lotWith(houses);
+  settlement.lots[18] = lotWith(houses);
   assert.strictEqual(KingdomService.isSettlementOvercrowded(settlement), false, 'adding residential resolves overcrowding');
 }
 
@@ -208,35 +208,32 @@ function testCanUpgradeSettlement() {
   const mill = 'Mill';
 
   // --- Town upgrade allowed ---
-  let lots = Array(36).fill().map(() => emptyLot());
-  for (let i = 0; i < 4; i++) {
-    lots[i * 6] = lotWith(houses);
-  }
-  let settlement = createSettlement(6, lots);
+  let lots = Array(81).fill().map(() => emptyLot());
+  const townHouseIndices = [0, 3, 27, 30];
+  townHouseIndices.forEach(i => { lots[i] = lotWith(houses); });
+  let settlement = createSettlement(9, lots);
   setupBasicKingdom(3);
   getKingdom().settlements[0] = settlement;
   assert.strictEqual(KingdomService.canUpgradeSettlement(settlement, 'town'), true, 'town upgrade allowed');
 
   // --- Town upgrade blocked by overcrowding ---
-  settlement.lots[24] = lotWith(mill);
+  settlement.lots[6] = lotWith(mill);
   assert.strictEqual(KingdomService.canUpgradeSettlement(settlement, 'town'), false, 'town upgrade blocked when overcrowded');
 
   // --- City upgrade allowed ---
   lots = Array(81).fill().map(() => emptyLot());
-  for (let i = 0; i < 9; i++) {
-    lots[i * 9] = lotWith(houses);
-  }
+  const cityHouseIndices = [0, 3, 6, 27, 30, 33, 54, 57, 60];
+  cityHouseIndices.forEach(i => { lots[i] = lotWith(houses); });
   settlement = createSettlement(9, lots);
   setupBasicKingdom(8);
   getKingdom().settlements[0] = settlement;
   assert.strictEqual(KingdomService.canUpgradeSettlement(settlement, 'city'), true, 'city upgrade allowed');
 
   // --- Metropolis upgrade blocked by level ---
-  lots = Array(100).fill().map(() => emptyLot());
-  for (let i = 0; i < 10; i++) {
-    lots[i * 10] = lotWith(houses);
-  }
-  settlement = createSettlement(10, lots);
+  lots = Array(144).fill().map(() => emptyLot());
+  const metroHouseIndices = [0, 3, 6, 9, 36, 39, 42, 45, 72, 75];
+  metroHouseIndices.forEach(i => { lots[i] = lotWith(houses); });
+  settlement = createSettlement(12, lots);
   setupBasicKingdom(14);
   getKingdom().settlements[0] = settlement;
   assert.strictEqual(KingdomService.canUpgradeSettlement(settlement, 'metropolis'), false, 'metropolis requires higher level');
