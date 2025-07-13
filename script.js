@@ -1609,6 +1609,8 @@ const SaveService = {
           turnData.leadershipActivitiesUsed = parseInt(turnData.leadershipActivitiesUsed, 10) || 0;
           turnData.regionActivitiesUsed = parseInt(turnData.regionActivitiesUsed, 10) || 0;
           turnData.civicActivitiesUsed = parseInt(turnData.civicActivitiesUsed, 10) || 0;
+          turnData.currentPhase = turnData.currentPhase || 'upkeep';
+          turnData.currentStep = turnData.currentStep || 1;
           for (const category in KINGDOM_ACTIVITIES) {
             KINGDOM_ACTIVITIES[category].forEach(name => {
               const k = `activity_${name.replace(/\s+/g, '_')}`;
@@ -1651,7 +1653,9 @@ const SaveService = {
             claimHexAttempts: 0,
             leadershipActivitiesUsed: 0,
             regionActivitiesUsed: 0,
-            civicActivitiesUsed: 0
+            civicActivitiesUsed: 0,
+            currentPhase: 'upkeep',
+            currentStep: 1
           }
         }
       }
@@ -1722,7 +1726,7 @@ modal.$el.addEventListener('hide', () => {
                   history = loadedState.history;
                   turnData = loadedState.turnData || {};
                   this.save(); // Saves over the currently active kingdom slot
-                  UI.renderAll();
+                  if (typeof document !== 'undefined') UI.renderAll();
                   TurnService.clearTurn();
                   modal.hide();
                   ErrorHandler.showSuccess(`"${kingdom.name}" successfully overwritten.`);
@@ -1782,7 +1786,7 @@ modal.$el.addEventListener('hide', () => {
     UIkit.modal.confirm("Are you sure? This will erase ALL saved kingdoms and start a new one.").then(() => {
       localStorage.removeItem(CONFIG.STORAGE_KEY);
       this.initializeDefaultKingdom();
-      UI.renderAll();
+      if (typeof document !== 'undefined') UI.renderAll();
       TurnService.clearTurn();
       ErrorHandler.showSuccess("All kingdoms have been reset.");
     });
@@ -1814,6 +1818,8 @@ const DataService = {
 const TurnService = {
   clearTurn() {
     turnData = {
+      currentPhase: 'upkeep',
+      currentStep: 1,
       turnFame: kingdom.fame + 1,
       turnUnrest: kingdom.unrest,
       turnResourcePoints: 0,
@@ -1835,7 +1841,7 @@ const TurnService = {
         turnData[key] = 0;
       });
     }
-    UI.renderTurnTracker();
+    if (typeof document !== 'undefined') UI.renderTurnTracker();
   },
 
   saveTurn() {
@@ -1859,13 +1865,17 @@ const TurnService = {
 
         SaveService.save();
         this.clearTurn();
-        UI.renderAll();
+        if (typeof document !== 'undefined') UI.renderAll();
         ErrorHandler.showSuccess("Turn saved successfully.");
       }, "Error saving turn");
     });
   },
 
   rollResources() {
+    if (turnData.currentPhase !== 'upkeep' || turnData.currentStep !== 1) {
+      ErrorHandler.showError('It is not time to roll resources.');
+      return;
+    }
     if (turnData.rolledResources) {
       ErrorHandler.showError("Resources have already been rolled this turn.");
       return;
@@ -1875,18 +1885,28 @@ const TurnService = {
     const numDice = kingdom.level + 4 + (turnData.turnBonusResourceDice || 0) - (turnData.turnPenaltyResourceDice || 0);
 
     let totalRP = 0;
+    const results = [];
     for (let i = 0; i < numDice; i++) {
-      totalRP += Math.floor(Math.random() * dieType) + 1;
+      const roll = Math.floor(Math.random() * dieType) + 1;
+      results.push(roll);
+      totalRP += roll;
     }
 
     turnData.turnResourcePoints = totalRP;
     turnData.rolledResources = true;
+    turnData.currentStep = 2;
 
-    UI.renderTurnTracker();
-    ErrorHandler.showSuccess(`You generated ${totalRP} RP for this turn!`);
+    if (typeof document !== 'undefined') UI.renderTurnTracker();
+    ErrorHandler.showSuccess(
+      `Rolled ${numDice}d${dieType}: [${results.join(', ')}] = ${totalRP} RP`
+    );
   },
 
   payConsumption() {
+    if (turnData.currentPhase !== 'upkeep' || turnData.currentStep !== 2) {
+      ErrorHandler.showError('You cannot pay consumption right now.');
+      return;
+    }
     if (!turnData.rolledResources) {
       ErrorHandler.showError("You must roll resources before paying consumption.");
       return;
@@ -1901,8 +1921,9 @@ const TurnService = {
     if (kingdom.food >= consumption) {
       kingdom.food -= consumption;
       turnData.paidConsumption = true;
-      UI.renderAll();
+      if (typeof document !== 'undefined') UI.renderAll();
       ErrorHandler.showSuccess(`Paid ${consumption} Food for consumption.`);
+      turnData.currentStep = 3;
     } else {
       const foodShortage = consumption - kingdom.food;
       const rpCost = foodShortage * 5;
@@ -1913,28 +1934,35 @@ const TurnService = {
             kingdom.food = 0;
             turnData.turnResourcePoints -= rpCost;
             turnData.paidConsumption = true;
-            UI.renderAll();
+            if (typeof document !== 'undefined') UI.renderAll();
             ErrorHandler.showSuccess(`Paid for the shortfall with ${rpCost} RP.`);
+            turnData.currentStep = 3;
           } else {
             UIkit.modal.alert(`You do not have enough RP. You must suffer the Unrest penalty.`);
             const unrestGain = Math.floor(Math.random() * 4) + 1;
             turnData.turnUnrest += unrestGain;
             turnData.paidConsumption = true;
-            UI.renderAll();
+            if (typeof document !== 'undefined') UI.renderAll();
+            turnData.currentStep = 3;
           }
         },
         () => {
           const unrestGain = Math.floor(Math.random() * 4) + 1;
           turnData.turnUnrest += unrestGain;
           turnData.paidConsumption = true;
-          UI.renderAll();
+          if (typeof document !== 'undefined') UI.renderAll();
           UIkit.notification({ message: `Declined to pay with RP. Gained ${unrestGain} Unrest.`, status: 'warning' });
+          turnData.currentStep = 3;
         }
       );
     }
   },
 
   applyUpkeepEffects() {
+    if (turnData.currentPhase !== 'upkeep' || turnData.currentStep !== 3) {
+      ErrorHandler.showError('You cannot apply unrest effects yet.');
+      return;
+    }
     if (!turnData.paidConsumption) {
       ErrorHandler.showError("You must pay consumption before applying unrest effects.");
       return;
@@ -1983,10 +2011,16 @@ const TurnService = {
     }
 
     turnData.appliedUnrest = true;
-    UI.renderAll();
+    turnData.currentPhase = 'activity';
+    turnData.currentStep = 1;
+    if (typeof document !== 'undefined') UI.renderAll();
   },
 
   checkForEvent() {
+    if (turnData.currentPhase !== 'activity') {
+      ErrorHandler.showError('You must finish previous phases first.');
+      return;
+    }
     if (!turnData.appliedUnrest) {
       ErrorHandler.showError("Complete the Upkeep phase before checking for events.");
       return;
@@ -2013,8 +2047,10 @@ const TurnService = {
     }
     
     turnData.eventChecked = true;
+    turnData.currentPhase = 'event';
+    turnData.currentStep = 1;
     SaveService.save();
-    UI.renderTurnTracker();
+    if (typeof document !== 'undefined') UI.renderTurnTracker();
   },
 
   getCapitalStructures() {
@@ -2065,7 +2101,9 @@ let isCreationMode = false;
 function getKingdom() { return kingdom; }
 function setKingdom(k) { kingdom = k; }
 function getTurnData() { return turnData; }
-function setTurnData(t) { turnData = t; }
+function setTurnData(t) {
+  turnData = Object.assign({ currentPhase: 'upkeep', currentStep: 1 }, t);
+}
 
 // ==========================================
 // UI RENDERING COMPONENTS
@@ -2275,6 +2313,7 @@ const UI = {
     const sizeData = KINGDOM_SIZE_TABLE.find(row => kingdom.size >= row.min && kingdom.size <= row.max) || KINGDOM_SIZE_TABLE[0];
     const numDice = kingdom.level + 4 + (turnData.turnBonusResourceDice || 0) - (turnData.turnPenaltyResourceDice || 0);
     const consumption = KingdomService.calculateConsumption().food;
+    const phaseDisplay = (turnData.currentPhase || 'upkeep').charAt(0).toUpperCase() + (turnData.currentPhase || 'upkeep').slice(1);
 
     const upkeepHtml = `
       <h4 class="uk-heading-line uk-text-center"><span>Upkeep Phase</span></h4>
@@ -2285,9 +2324,9 @@ const UI = {
           <p class="uk-text-meta uk-margin-remove">Kingdom Consumption: ${consumption} Food</p>
         </div>
         <div class="uk-width-auto@s uk-text-right">
-          <button class="uk-button uk-button-primary uk-margin-small-bottom" id="upkeep-roll-resources" ${turnData.rolledResources ? 'disabled' : ''}>1. Roll Resources</button>
-          <button class="uk-button uk-button-primary uk-margin-small-bottom" id="upkeep-pay-consumption" ${( !turnData.rolledResources || turnData.paidConsumption ) ? 'disabled' : ''}>2. Pay Consumption</button>
-          <button class="uk-button uk-button-primary" id="upkeep-apply-unrest" ${( !turnData.paidConsumption || turnData.appliedUnrest ) ? 'disabled' : ''}>3. Apply Unrest Effects</button>
+          <button class="uk-button uk-button-primary uk-margin-small-bottom" id="upkeep-roll-resources" ${turnData.rolledResources || turnData.currentPhase !== 'upkeep' || turnData.currentStep !== 1 ? 'disabled' : ''}>1. Roll Resources</button>
+          <button class="uk-button uk-button-primary uk-margin-small-bottom" id="upkeep-pay-consumption" ${( turnData.currentPhase !== 'upkeep' || turnData.currentStep !== 2 || !turnData.rolledResources || turnData.paidConsumption ) ? 'disabled' : ''}>2. Pay Consumption</button>
+          <button class="uk-button uk-button-primary" id="upkeep-apply-unrest" ${( turnData.currentPhase !== 'upkeep' || turnData.currentStep !== 3 || !turnData.paidConsumption || turnData.appliedUnrest ) ? 'disabled' : ''}>3. Apply Unrest Effects</button>
         </div>
       </div>
     `;
@@ -2304,12 +2343,13 @@ const UI = {
         else if (category === 'leadership') canIncrease = TurnService.canAttemptLeadershipActivity();
         else if (category === 'region') canIncrease = TurnService.canAttemptRegionActivity();
         else if (category === 'civic') canIncrease = TurnService.canAttemptCivicActivity();
+        const disableAct = turnData.currentPhase !== 'activity';
         activitiesHtml += `
           <div>
             <span class="uk-margin-small-right">${activityName}</span>
-            <button class="uk-button uk-button-default uk-button-small" data-activity="${key}" data-action="decrease" ${value <= 0 ? 'disabled' : ''}>-</button>
-            <input class="uk-input uk-form-width-small uk-form-small" type="number" min="0" data-key="${key}" value="${value}">
-            <button class="uk-button uk-button-default uk-button-small" data-activity="${key}" data-action="increase" ${canIncrease ? '' : 'disabled'}>+</button>
+            <button class="uk-button uk-button-default uk-button-small" data-activity="${key}" data-action="decrease" ${value <= 0 || disableAct ? 'disabled' : ''}>-</button>
+            <input class="uk-input uk-form-width-small uk-form-small" type="number" min="0" data-key="${key}" value="${value}" ${disableAct ? 'disabled' : ''}>
+            <button class="uk-button uk-button-default uk-button-small" data-activity="${key}" data-action="increase" ${(canIncrease && !disableAct) ? '' : 'disabled'}>+</button>
           </div>`;
       });
       activitiesHtml += '</div>';
@@ -2324,7 +2364,7 @@ const UI = {
           <p class="uk-text-meta uk-margin-remove">Current Event: ${turnData.currentEvent || 'None'}</p>
         </div>
         <div class="uk-width-auto@s uk-text-right">
-          <button class="uk-button uk-button-primary" id="event-check-event" ${( !turnData.appliedUnrest || turnData.eventChecked ) ? 'disabled' : ''}>Check for Event</button>
+          <button class="uk-button uk-button-primary" id="event-check-event" ${( turnData.currentPhase !== 'activity' || !turnData.appliedUnrest || turnData.eventChecked ) ? 'disabled' : ''}>Check for Event</button>
         </div>
       </div>
     `;
@@ -2355,6 +2395,7 @@ const UI = {
           <button id="clear-turn-btn" class="uk-button uk-button-secondary">Clear Turn</button>
         </div>
       </div>
+      <h4 class="uk-text-center uk-margin-small">Current Phase: ${phaseDisplay}</h4>
       <hr>
       ${upkeepHtml}
       <hr>
@@ -2761,7 +2802,7 @@ modal.$el.addEventListener('hide', () => {
         kingdom.level = newLevel;
         kingdom.xp -= CONFIG.XP_CAP;
         SaveService.save();
-        UI.renderAll();
+        if (typeof document !== 'undefined') UI.renderAll();
         modal.hide();
         ErrorHandler.showSuccess(`Kingdom advancement to Level ${newLevel} complete!`);
     });
@@ -3447,6 +3488,10 @@ const EventHandlers = {
   },
 
   handleActivityUpdate(activityKey, action) {
+    if (turnData.currentPhase !== 'activity') {
+      ErrorHandler.showError('Activities can only be edited during the Activity phase.');
+      return;
+    }
     const input = document.querySelector(`input[data-key='${activityKey}']`);
     if (!input) return;
     let value = parseInt(input.value, 10) || 0;
@@ -3485,6 +3530,11 @@ const EventHandlers = {
     if (!key) return;
 
     if (key.startsWith("activity_")) {
+      if (turnData.currentPhase !== 'activity') {
+        ErrorHandler.showError('Activities can only be modified during the Activity phase.');
+        e.target.value = turnData[key] || 0;
+        return;
+      }
       let value = parseInt(e.target.value, 10);
       if (isNaN(value) || value < 0) value = 0;
       const oldValue = turnData[key] || 0;
@@ -3532,7 +3582,7 @@ const EventHandlers = {
 
       turnData[key] = value;
       e.target.value = value;
-      UI.renderTurnTracker();
+      if (typeof document !== 'undefined') UI.renderTurnTracker();
     } else if (e.target.type === "checkbox") {
       turnData[key] = e.target.checked;
     } else if (e.target.type === "number") {
@@ -3823,7 +3873,7 @@ const debouncedRenderAll = debounce(UI.renderAll, CONFIG.DEBOUNCE_DELAY);
 function reinitializeApp() {
     ErrorHandler.withErrorHandling(() => {
         SaveService.load(); // Load the active kingdom's data into the state
-        UI.renderAll();     // Re-draw the entire UI with the new data
+        if (typeof document !== 'undefined') UI.renderAll();     // Re-draw the entire UI with the new data
         TurnService.clearTurn(); // Reset the turn tracker
     }, "Failed to re-initialize application state");
 }
@@ -3832,7 +3882,7 @@ function initializeApplication() {
   ErrorHandler.withErrorHandling(() => {
     console.log(`Initializing Kingdom Tracker v${CONFIG.VERSION}`);
     SaveService.load();
-    UI.renderAll();
+    if (typeof document !== 'undefined') UI.renderAll();
     TurnService.clearTurn();
     EventHandlers.initEventListeners();
     CreationService.calculateAndRenderScores();
