@@ -30,6 +30,19 @@ function lotWith(structureName) {
   return { buildingId: 1, isOrigin: true, structureName };
 }
 
+// New helper to calculate how many 3x3 blocks have at least one structure
+function countBuiltBlocks(settlement) {
+  const blocks = new Set();
+  settlement.lots.forEach((lot, idx) => {
+    if (!lot.structureName) return;
+    const x = idx % settlement.gridSize;
+    const y = Math.floor(idx / settlement.gridSize);
+    const blockIndex = Math.floor(x / 3) + Math.floor(y / 3) * (settlement.gridSize / 3);
+    blocks.add(blockIndex);
+  });
+  return blocks.size;
+}
+
 function testOvercrowding() {
   const houses = 'Houses'; // residential
   const mill = 'Mill'; // non-residential
@@ -37,15 +50,28 @@ function testOvercrowding() {
   // Settlement with houses only in first lot
   let settlement = createSettlement(6, Array(36).fill().map(() => emptyLot()));
   settlement.lots[0] = lotWith(houses);
+  assert.strictEqual(countBuiltBlocks(settlement), 1, 'one block built');
   assert.strictEqual(KingdomService.isSettlementOvercrowded(settlement), false, 'single residential covers first block');
 
   // Add a non-residential structure in a different block
   settlement.lots[18] = lotWith(mill);
+  assert.strictEqual(countBuiltBlocks(settlement), 2, 'two blocks built');
   assert.strictEqual(KingdomService.isSettlementOvercrowded(settlement), true, 'non-residential in new block causes overcrowding');
 
   // Add another residential structure to cover second block
   settlement.lots[18] = lotWith(houses);
+  assert.strictEqual(countBuiltBlocks(settlement), 2, 'still two blocks built');
   assert.strictEqual(KingdomService.isSettlementOvercrowded(settlement), false, 'adding residential resolves overcrowding');
+
+  // Repeat with a 9x9 settlement to verify block counting
+  settlement = createSettlement(9, Array(81).fill().map(() => emptyLot()));
+  settlement.lots[0] = lotWith(houses);
+  assert.strictEqual(countBuiltBlocks(settlement), 1, '9x9 single block');
+  settlement.lots[40] = lotWith(mill); // different block
+  assert.strictEqual(countBuiltBlocks(settlement), 2, '9x9 two blocks');
+  assert.strictEqual(KingdomService.isSettlementOvercrowded(settlement), true, 'overcrowded until second house placed');
+  settlement.lots[40] = lotWith(houses);
+  assert.strictEqual(KingdomService.isSettlementOvercrowded(settlement), false, 'resolved on 9x9');
 }
 
 // ----- new tests for attempt limits -----
@@ -194,6 +220,22 @@ function setupInfrastructureKingdom() {
   });
 }
 
+function setupKingdomWithSettlement(settlement) {
+  setKingdom({
+    level: 1,
+    size: 1,
+    fame: 0,
+    unrest: 0,
+    food: 0,
+    armies: [],
+    farmlandHexes: 0,
+    leaders: {},
+    capital: settlement.name || 'Cap',
+    settlements: [settlement]
+  });
+  setTurnData({ turnConsumptionModifier: 0 });
+}
+
 function testInfrastructurePlacement() {
   setupInfrastructureKingdom();
   const settlement = getKingdom().settlements[0];
@@ -212,12 +254,14 @@ function testCanUpgradeSettlement() {
   const townHouseIndices = [0, 3, 27, 30];
   townHouseIndices.forEach(i => { lots[i] = lotWith(houses); });
   let settlement = createSettlement(9, lots);
+  assert.strictEqual(countBuiltBlocks(settlement), 4, '9x9 town has four blocks');
   setupBasicKingdom(3);
   getKingdom().settlements[0] = settlement;
   assert.strictEqual(KingdomService.canUpgradeSettlement(settlement, 'town'), true, 'town upgrade allowed');
 
   // --- Town upgrade blocked by overcrowding ---
   settlement.lots[6] = lotWith(mill);
+  assert.strictEqual(countBuiltBlocks(settlement), 5, 'mill adds fifth block');
   assert.strictEqual(KingdomService.canUpgradeSettlement(settlement, 'town'), false, 'town upgrade blocked when overcrowded');
 
   // --- City upgrade allowed ---
@@ -225,6 +269,7 @@ function testCanUpgradeSettlement() {
   const cityHouseIndices = [0, 3, 6, 27, 30, 33, 54, 57, 60];
   cityHouseIndices.forEach(i => { lots[i] = lotWith(houses); });
   settlement = createSettlement(9, lots);
+  assert.strictEqual(countBuiltBlocks(settlement), 9, 'city has nine blocks');
   setupBasicKingdom(8);
   getKingdom().settlements[0] = settlement;
   assert.strictEqual(KingdomService.canUpgradeSettlement(settlement, 'city'), true, 'city upgrade allowed');
@@ -234,9 +279,29 @@ function testCanUpgradeSettlement() {
   const metroHouseIndices = [0, 3, 6, 9, 36, 39, 42, 45, 72, 75];
   metroHouseIndices.forEach(i => { lots[i] = lotWith(houses); });
   settlement = createSettlement(12, lots);
+  assert.strictEqual(countBuiltBlocks(settlement), 10, 'metropolis has ten blocks');
   setupBasicKingdom(14);
   getKingdom().settlements[0] = settlement;
   assert.strictEqual(KingdomService.canUpgradeSettlement(settlement, 'metropolis'), false, 'metropolis requires higher level');
+}
+
+function testConsumption() {
+  const houses = 'Houses';
+  let lots = Array(36).fill().map(() => emptyLot());
+  const townHouseIndices = [0, 3, 18, 21];
+  townHouseIndices.forEach(i => { lots[i] = lotWith(houses); });
+  let settlement = createSettlement(6, lots);
+  setupKingdomWithSettlement({ name: 'Town6', gridSize: 6, lots });
+  assert.strictEqual(countBuiltBlocks(settlement), 4, '6x6 settlement has four blocks');
+  assert.strictEqual(KingdomService.calculateConsumption().food, 2, 'town consumption');
+
+  lots = Array(81).fill().map(() => emptyLot());
+  const cityHouseIndices = [0, 3, 6, 27, 30, 33, 54, 57, 60];
+  cityHouseIndices.forEach(i => { lots[i] = lotWith(houses); });
+  settlement = createSettlement(9, lots);
+  setupKingdomWithSettlement({ name: 'City9', gridSize: 9, lots });
+  assert.strictEqual(countBuiltBlocks(settlement), 9, '9x9 settlement has nine blocks');
+  assert.strictEqual(KingdomService.calculateConsumption().food, 4, 'city consumption');
 }
 
 try {
@@ -247,6 +312,7 @@ try {
   testPhaseProgression();
   testInfrastructurePlacement();
   testCanUpgradeSettlement();
+  testConsumption();
   console.log('All tests passed.');
 } catch (err) {
   console.error('Test failed:', err);
