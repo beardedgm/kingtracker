@@ -4,6 +4,7 @@ const {
   KingdomService,
   AVAILABLE_STRUCTURES,
   TurnService,
+  SettlementService,
   getKingdom,
   setKingdom,
   setTurnData,
@@ -133,13 +134,53 @@ function testPhaseOrder() {
   assert.strictEqual(getTurnData().eventChecked, false, 'checkForEvent blocked');
 }
 
+function setupInfrastructureKingdom() {
+  setKingdom({
+    level: 1,
+    size: 1,
+    fame: 0,
+    unrest: 0,
+    food: 10,
+    treasury: 50,
+    stone: 10,
+    lumber: 0,
+    luxuries: 0,
+    ore: 0,
+    armies: [],
+    farmlandHexes: 0,
+    leaders: {},
+    capital: 'Cap',
+    settlements: [{
+      id: 1,
+      name: 'Cap',
+      gridSize: 1,
+      lots: [emptyLot()],
+      infrastructure: {
+        sewerSystem: false,
+        pavedStreets: false,
+        magicalStreetlamps: false
+      }
+    }]
+  });
+}
+
+function testInfrastructurePlacement() {
+  setupInfrastructureKingdom();
+  const settlement = getKingdom().settlements[0];
+  const beforeLots = JSON.parse(JSON.stringify(settlement.lots));
+  SettlementService.placeStructure(1, 0, 'Paved Streets');
+  assert.strictEqual(settlement.infrastructure.pavedStreets, true, 'paved streets flag set');
+  assert.deepStrictEqual(settlement.lots, beforeLots, 'lots remain unchanged');
+}
+
 try {
   testOvercrowding();
   testCanAttemptClaimHex();
   testCanAttemptLeadershipActivity();
   testPhaseOrder();
+  testInfrastructurePlacement();
   console.log('All tests passed.');
 } catch (err) {
-  console.error('Test failed:', err.message);
+  console.error('Test failed:', err);
   process.exitCode = 1;
 }

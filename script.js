@@ -2946,7 +2946,7 @@ const SettlementService = {
     return true;
   },
 
-   placeStructure(settlementId, lotIndex, structureName) {
+  placeStructure(settlementId, lotIndex, structureName) {
     const settlement = kingdom.settlements.find(s => s.id == settlementId);
     const structure = AVAILABLE_STRUCTURES.find(s => s.name === structureName);
     if (!structure || !settlement) return;
@@ -2962,7 +2962,9 @@ const SettlementService = {
             });
             ErrorHandler.showSuccess("Lot cleared.");
             SaveService.save();
-            UI.renderAll();
+            if (typeof document !== 'undefined') {
+                UI.renderAll();
+            }
         }
         return;
     }
@@ -2989,6 +2991,36 @@ const SettlementService = {
         kingdom[resourceKey] -= cost;
     });
     // ===================================================================
+
+    // ---------------------------------------------------------------
+    // Infrastructure structures modify settlement flags only
+    // ---------------------------------------------------------------
+    if (structure.traits.includes('Infrastructure')) {
+        const infraMap = {
+            'Paved Streets': 'pavedStreets',
+            'Sewer System': 'sewerSystem',
+            'Magical Streetlamps': 'magicalStreetlamps'
+        };
+        const flag = infraMap[structure.name];
+        if (flag) {
+            if (!settlement.infrastructure) settlement.infrastructure = {};
+            settlement.infrastructure[flag] = true;
+        }
+
+        if (structure.ruin) {
+            const ruinType = structure.ruin.type === 'Any' ? 'corruption' : structure.ruin.type.toLowerCase();
+            KingdomService.updateRuin(ruinType, structure.ruin.value);
+            ErrorHandler.showSuccess(`${structure.name} built! ${structure.ruin.value} ${ruinType} Ruin added.`);
+        } else {
+            ErrorHandler.showSuccess(`${structure.name} built successfully!`);
+        }
+
+        SaveService.save();
+        if (typeof document !== 'undefined') {
+            UI.renderAll();
+        }
+        return;
+    }
 
     // The rest of the logic for placing the building on the grid remains the same
     const [width, height] = structure.lots;
@@ -3024,7 +3056,9 @@ const SettlementService = {
     }
 
     SaveService.save();
-    UI.renderAll();
+    if (typeof document !== 'undefined') {
+        UI.renderAll();
+    }
   },
 
   showEditLot(settlementId, lotIndex) {
@@ -3810,6 +3844,7 @@ if (typeof module !== "undefined" && module.exports) {
     KingdomService,
     AVAILABLE_STRUCTURES,
     TurnService,
+    SettlementService,
     getKingdom,
     setKingdom,
     getTurnData,
