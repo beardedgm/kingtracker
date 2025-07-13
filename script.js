@@ -1362,7 +1362,13 @@ const KingdomService = {
 
     // Base consumption from settlements
     kingdom.settlements.forEach(settlement => {
-        const builtBlocks = new Set(settlement.lots.filter(l => l.structureName).map(l => Math.floor(l.lotIndex / 4))).size;
+        const builtBlockIndices = new Set();
+        settlement.lots.forEach((lot, idx) => {
+            if (lot.structureName) {
+                builtBlockIndices.add(Math.floor(idx / settlement.gridSize));
+            }
+        });
+        const builtBlocks = builtBlockIndices.size;
         let settlementBaseConsumption = 1; // Village
         if (builtBlocks >= 9) settlementBaseConsumption = 6; // Metropolis
         else if (builtBlocks >= 4) settlementBaseConsumption = 4; // City
@@ -1480,15 +1486,19 @@ calculateControlDC() {
   },
 
   isSettlementOvercrowded(settlement) {
-    const residentialLots = settlement.lots.filter(lot => {
-      if (!lot.structureName) return false;
+    const residentialLots = settlement.lots.reduce((count, lot) => {
+      if (!lot.structureName) return count;
       const structure = AVAILABLE_STRUCTURES.find(s => s.name === lot.structureName);
-      return structure && structure.tags && structure.tags.includes('Residential');
-    }).length;
-    
-    const builtBlocks = new Set(
-      settlement.lots.filter(l => l.structureName).map(l => Math.floor(l.lotIndex / 4))
-    ).size;
+      return structure && structure.traits && structure.traits.includes('Residential') ? count + 1 : count;
+    }, 0);
+
+    const builtBlockIndices = new Set();
+    settlement.lots.forEach((lot, idx) => {
+      if (lot.structureName) {
+        builtBlockIndices.add(Math.floor(idx / settlement.gridSize));
+      }
+    });
+    const builtBlocks = builtBlockIndices.size;
 
     return residentialLots < builtBlocks;
   }
@@ -3583,23 +3593,29 @@ function initializeApplication() {
 
 
 
-document.addEventListener("DOMContentLoaded", initializeApplication);
+if (typeof document !== "undefined") {
+  document.addEventListener("DOMContentLoaded", initializeApplication);
 
-// ==========================================
-// GLOBAL ERROR HANDLING & DEBUGGING
-// ==========================================
+  // ==========================================
+  // GLOBAL ERROR HANDLING & DEBUGGING
+  // ==========================================
 
-window.addEventListener("unhandledrejection", (event) => {
-  console.error("Unhandled promise rejection:", event.reason);
-  ErrorHandler.showError("An unexpected error occurred. Your data has been saved.");
-  SaveService.save();
-});
+  window.addEventListener("unhandledrejection", (event) => {
+    console.error("Unhandled promise rejection:", event.reason);
+    ErrorHandler.showError("An unexpected error occurred. Your data has been saved.");
+    SaveService.save();
+  });
 
-if (typeof window !== "undefined") {
-  window.KingdomTracker = {
-    kingdom, turnData, history, 
-    save: SaveService.save,
-    renderAll: debouncedRenderAll,
-    version: CONFIG.VERSION,
-  };
+  if (typeof window !== "undefined") {
+    window.KingdomTracker = {
+      kingdom, turnData, history,
+      save: SaveService.save,
+      renderAll: debouncedRenderAll,
+      version: CONFIG.VERSION,
+    };
+  }
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = { KingdomService, AVAILABLE_STRUCTURES };
 }
