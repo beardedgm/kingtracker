@@ -1831,6 +1831,10 @@ const TurnService = {
   },
 
   rollResources() {
+    if (turnData.rolledResources) {
+      ErrorHandler.showError("Resources have already been rolled this turn.");
+      return;
+    }
     const sizeData = KINGDOM_SIZE_TABLE.find(row => kingdom.size >= row.min && kingdom.size <= row.max) || KINGDOM_SIZE_TABLE[0];
     const dieType = sizeData.die;
     const numDice = kingdom.level + 4 + (turnData.turnBonusResourceDice || 0) - (turnData.turnPenaltyResourceDice || 0);
@@ -1848,8 +1852,16 @@ const TurnService = {
   },
 
   payConsumption() {
+    if (!turnData.rolledResources) {
+      ErrorHandler.showError("You must roll resources before paying consumption.");
+      return;
+    }
+
     const consumption = KingdomService.calculateConsumption().food;
-    if (turnData.paidConsumption) return;
+    if (turnData.paidConsumption) {
+      ErrorHandler.showError("Consumption has already been paid this turn.");
+      return;
+    }
 
     if (kingdom.food >= consumption) {
       kingdom.food -= consumption;
@@ -1888,6 +1900,14 @@ const TurnService = {
   },
 
   applyUpkeepEffects() {
+    if (!turnData.paidConsumption) {
+      ErrorHandler.showError("You must pay consumption before applying unrest effects.");
+      return;
+    }
+    if (turnData.appliedUnrest) {
+      ErrorHandler.showError("Unrest effects have already been applied this turn.");
+      return;
+    }
     if (kingdom.leaders && kingdom.leaders.ruler && kingdom.leaders.ruler.status === "Vacant") {
         const unrestGain = Math.floor(Math.random() * 4) + 1;
         turnData.turnUnrest += unrestGain;
@@ -1932,6 +1952,14 @@ const TurnService = {
   },
 
   checkForEvent() {
+    if (!turnData.appliedUnrest) {
+      ErrorHandler.showError("Complete the Upkeep phase before checking for events.");
+      return;
+    }
+    if (turnData.eventChecked) {
+      ErrorHandler.showError("You have already checked for an event this turn.");
+      return;
+    }
     const eventCheckDC = 16 - (kingdom.eventCheckModifier || 0);
     const d20Roll = Math.floor(Math.random() * 20) + 1;
 
@@ -2217,8 +2245,8 @@ const UI = {
         </div>
         <div class="uk-width-auto@s uk-text-right">
           <button class="uk-button uk-button-primary uk-margin-small-bottom" id="upkeep-roll-resources" ${turnData.rolledResources ? 'disabled' : ''}>1. Roll Resources</button>
-          <button class="uk-button uk-button-primary uk-margin-small-bottom" id="upkeep-pay-consumption" ${turnData.paidConsumption ? 'disabled' : ''}>2. Pay Consumption</button>
-          <button class="uk-button uk-button-primary" id="upkeep-apply-unrest" ${turnData.appliedUnrest ? 'disabled' : ''}>3. Apply Unrest Effects</button>
+          <button class="uk-button uk-button-primary uk-margin-small-bottom" id="upkeep-pay-consumption" ${( !turnData.rolledResources || turnData.paidConsumption ) ? 'disabled' : ''}>2. Pay Consumption</button>
+          <button class="uk-button uk-button-primary" id="upkeep-apply-unrest" ${( !turnData.paidConsumption || turnData.appliedUnrest ) ? 'disabled' : ''}>3. Apply Unrest Effects</button>
         </div>
       </div>
     `;
@@ -2255,7 +2283,7 @@ const UI = {
           <p class="uk-text-meta uk-margin-remove">Current Event: ${turnData.currentEvent || 'None'}</p>
         </div>
         <div class="uk-width-auto@s uk-text-right">
-          <button class="uk-button uk-button-primary" id="event-check-event" ${turnData.eventChecked ? 'disabled' : ''}>Check for Event</button>
+          <button class="uk-button uk-button-primary" id="event-check-event" ${( !turnData.appliedUnrest || turnData.eventChecked ) ? 'disabled' : ''}>Check for Event</button>
         </div>
       </div>
     `;
