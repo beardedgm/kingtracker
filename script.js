@@ -1315,6 +1315,12 @@ const KingdomService = {
     }
 
     kingdom.settlements.forEach(settlement => {
+        // Initialize per-settlement bonuses
+        const settlementBonuses = {};
+        for (const skillName in KINGDOM_SKILLS) {
+            settlementBonuses[skillName] = 0;
+        }
+
         // Iterate through all built structures in the settlement
         const builtStructures = settlement.lots
             .filter(lot => lot.isOrigin && lot.structureName)
@@ -1333,7 +1339,7 @@ const KingdomService = {
                 structure.itemBonus.forEach(bonus => {
                     const skillName = ACTIVITY_TO_SKILL_MAP[bonus.target];
                     if (skillName) {
-                        aggregatedBonuses.skillBonuses[skillName] += bonus.value;
+                        settlementBonuses[skillName] += bonus.value;
                     }
                 });
             }
@@ -1351,6 +1357,12 @@ const KingdomService = {
                 }
             }
         });
+
+        // Cap item bonuses based on settlement type
+        const maxItemBonus = this.getSettlementMaxItemBonus(settlement);
+        for (const skill in settlementBonuses) {
+            aggregatedBonuses.skillBonuses[skill] += Math.min(settlementBonuses[skill], maxItemBonus);
+        }
     });
 
     return aggregatedBonuses;
@@ -1483,6 +1495,19 @@ calculateControlDC() {
       });
     }
     if (ruin.points < 0) ruin.points = 0;
+  },
+
+  getSettlementMaxItemBonus(settlement) {
+    const blockIndices = new Set();
+    settlement.lots.forEach((lot, idx) => {
+      if (lot.structureName) {
+        blockIndices.add(Math.floor(idx / settlement.gridSize));
+      }
+    });
+    const blocks = blockIndices.size;
+    if (blocks >= 10) return 3; // Metropolis
+    if (blocks >= 9) return 2;  // City
+    return 1; // Village or Town
   },
 
   isSettlementOvercrowded(settlement) {
