@@ -173,12 +173,52 @@ function testInfrastructurePlacement() {
   assert.deepStrictEqual(settlement.lots, beforeLots, 'lots remain unchanged');
 }
 
+function testCanUpgradeSettlement() {
+  const houses = 'Houses';
+  const mill = 'Mill';
+
+  // --- Town upgrade allowed ---
+  let lots = Array(36).fill().map(() => emptyLot());
+  for (let i = 0; i < 4; i++) {
+    lots[i * 6] = lotWith(houses);
+  }
+  let settlement = createSettlement(6, lots);
+  setupBasicKingdom(3);
+  getKingdom().settlements[0] = settlement;
+  assert.strictEqual(KingdomService.canUpgradeSettlement(settlement, 'town'), true, 'town upgrade allowed');
+
+  // --- Town upgrade blocked by overcrowding ---
+  settlement.lots[24] = lotWith(mill);
+  assert.strictEqual(KingdomService.canUpgradeSettlement(settlement, 'town'), false, 'town upgrade blocked when overcrowded');
+
+  // --- City upgrade allowed ---
+  lots = Array(81).fill().map(() => emptyLot());
+  for (let i = 0; i < 9; i++) {
+    lots[i * 9] = lotWith(houses);
+  }
+  settlement = createSettlement(9, lots);
+  setupBasicKingdom(8);
+  getKingdom().settlements[0] = settlement;
+  assert.strictEqual(KingdomService.canUpgradeSettlement(settlement, 'city'), true, 'city upgrade allowed');
+
+  // --- Metropolis upgrade blocked by level ---
+  lots = Array(100).fill().map(() => emptyLot());
+  for (let i = 0; i < 10; i++) {
+    lots[i * 10] = lotWith(houses);
+  }
+  settlement = createSettlement(10, lots);
+  setupBasicKingdom(14);
+  getKingdom().settlements[0] = settlement;
+  assert.strictEqual(KingdomService.canUpgradeSettlement(settlement, 'metropolis'), false, 'metropolis requires higher level');
+}
+
 try {
   testOvercrowding();
   testCanAttemptClaimHex();
   testCanAttemptLeadershipActivity();
   testPhaseOrder();
   testInfrastructurePlacement();
+  testCanUpgradeSettlement();
   console.log('All tests passed.');
 } catch (err) {
   console.error('Test failed:', err);
