@@ -40,6 +40,15 @@
     grid-template-columns: repeat(6, 1fr);
 }
 
+/* Thicker dividing lines for 6x6 grids */
+.urban-grid.cols-6 .grid-lot:nth-child(6n+3) {
+    border-right: 2px solid #ddd;
+}
+
+.urban-grid.cols-6 .grid-lot:nth-child(n+13):nth-child(-n+18) {
+    border-bottom: 2px solid #ddd;
+}
+
 .urban-grid.cols-8 {
     grid-template-columns: repeat(8, 1fr);
 }
