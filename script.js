@@ -2026,6 +2026,12 @@ let turnData = {};
 let history = [];
 let isCreationMode = false;
 
+// Helpers exposed for unit tests
+function getKingdom() { return kingdom; }
+function setKingdom(k) { kingdom = k; }
+function getTurnData() { return turnData; }
+function setTurnData(t) { turnData = t; }
+
 // ==========================================
 // UI RENDERING COMPONENTS
 // ==========================================
@@ -3800,5 +3806,13 @@ if (typeof document !== "undefined") {
 }
 
 if (typeof module !== "undefined" && module.exports) {
-  module.exports = { KingdomService, AVAILABLE_STRUCTURES };
+  module.exports = {
+    KingdomService,
+    AVAILABLE_STRUCTURES,
+    TurnService,
+    getKingdom,
+    setKingdom,
+    getTurnData,
+    setTurnData
+  };
 }
