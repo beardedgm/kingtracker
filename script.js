@@ -1570,6 +1570,10 @@ const SaveService = {
           kingdom = activeKingdomData.kingdom;
           history = activeKingdomData.history || [];
           turnData = activeKingdomData.turnData || {};
+          turnData.claimHexAttempts = turnData.claimHexAttempts || 0;
+          turnData.leadershipActivitiesUsed = turnData.leadershipActivitiesUsed || 0;
+          turnData.regionActivitiesUsed = turnData.regionActivitiesUsed || 0;
+          turnData.civicActivitiesUsed = turnData.civicActivitiesUsed || 0;
         } else {
           const firstKingdomId = Object.keys(appState.kingdoms)[0];
           if (firstKingdomId) {
@@ -1602,7 +1606,12 @@ const SaveService = {
         [newKingdomId]: {
           kingdom: newKingdomData,
           history: [],
-          turnData: {}
+          turnData: {
+            claimHexAttempts: 0,
+            leadershipActivitiesUsed: 0,
+            regionActivitiesUsed: 0,
+            civicActivitiesUsed: 0
+          }
         }
       }
     };
@@ -1773,7 +1782,11 @@ const TurnService = {
       rolledResources: false,
       paidConsumption: false,
       appliedUnrest: false,
-      eventChecked: false
+      eventChecked: false,
+      claimHexAttempts: 0,
+      leadershipActivitiesUsed: 0,
+      regionActivitiesUsed: 0,
+      civicActivitiesUsed: 0
     };
     for (const category in KINGDOM_ACTIVITIES) {
       KINGDOM_ACTIVITIES[category].forEach(activityName => {
@@ -1933,6 +1946,40 @@ const TurnService = {
     turnData.eventChecked = true;
     SaveService.save();
     UI.renderTurnTracker();
+  },
+
+  getCapitalStructures() {
+    const capitalSettlement = kingdom.settlements?.find(s => s.name === kingdom.capital);
+    if (!capitalSettlement) return [];
+    return capitalSettlement.lots
+      .filter(l => l.isOrigin && l.structureName)
+      .map(l => l.structureName);
+  },
+
+  canAttemptClaimHex() {
+    const base = Math.max(1, Math.ceil(kingdom.level / 5));
+    return turnData.claimHexAttempts < base;
+  },
+
+  canAttemptLeadershipActivity() {
+    let allowed = 2 + Math.floor((kingdom.level - 1) / 10);
+    const structures = this.getCapitalStructures();
+    if (structures.some(s => ["Town Hall", "Castle", "Palace"].includes(s))) {
+      allowed += 1;
+    }
+    return turnData.leadershipActivitiesUsed < allowed;
+  },
+
+  canAttemptRegionActivity() {
+    const allowed = 1 + Math.floor((kingdom.level - 1) / 5);
+    return turnData.regionActivitiesUsed < allowed;
+  },
+
+  canAttemptCivicActivity() {
+    let allowed = 1 + Math.floor((kingdom.level - 1) / 10);
+    const structures = this.getCapitalStructures();
+    if (structures.includes("Construction Yard")) allowed += 1;
+    return turnData.civicActivitiesUsed < allowed;
   }
 };
 
@@ -3309,9 +3356,46 @@ const EventHandlers = {
   handleTurnDataUpdate(e) {
     const { key } = e.target.dataset;
     if (!key) return;
-    if (e.target.type === "checkbox") turnData[key] = e.target.checked;
-    else if (e.target.type === "number") turnData[key] = parseInt(e.target.value, 10) || 0;
-    else turnData[key] = e.target.value;
+    if (e.target.type === "checkbox") {
+      const checked = e.target.checked;
+      if (key.startsWith("activity_")) {
+        const activityName = key.substring(9).replace(/_/g, " ");
+        let category = null;
+        for (const cat in KINGDOM_ACTIVITIES) {
+          if (KINGDOM_ACTIVITIES[cat].includes(activityName)) { category = cat; break; }
+        }
+
+        let allowed = true;
+        if (activityName === "Claim Hex") {
+          allowed = TurnService.canAttemptClaimHex();
+          if (allowed && checked) turnData.claimHexAttempts++;
+          else if (!checked && turnData.claimHexAttempts > 0) turnData.claimHexAttempts--;
+        } else if (category === "leadership") {
+          allowed = TurnService.canAttemptLeadershipActivity();
+          if (allowed && checked) turnData.leadershipActivitiesUsed++;
+          else if (!checked && turnData.leadershipActivitiesUsed > 0) turnData.leadershipActivitiesUsed--;
+        } else if (category === "region") {
+          allowed = TurnService.canAttemptRegionActivity();
+          if (allowed && checked) turnData.regionActivitiesUsed++;
+          else if (!checked && turnData.regionActivitiesUsed > 0) turnData.regionActivitiesUsed--;
+        } else if (category === "civic") {
+          allowed = TurnService.canAttemptCivicActivity();
+          if (allowed && checked) turnData.civicActivitiesUsed++;
+          else if (!checked && turnData.civicActivitiesUsed > 0) turnData.civicActivitiesUsed--;
+        }
+
+        if (!allowed && checked) {
+          e.target.checked = false;
+          UIkit.notification({ message: 'No attempts remaining for this activity.', status: 'danger' });
+          return;
+        }
+      }
+      turnData[key] = e.target.checked;
+    } else if (e.target.type === "number") {
+      turnData[key] = parseInt(e.target.value, 10) || 0;
+    } else {
+      turnData[key] = e.target.value;
+    }
   },
 
 initEventListeners() {
