@@ -233,11 +233,24 @@ const KINGDOM_SIZE_TABLE = [
 ];
 
 const STRUCTURE_COLORS = {
-  Residential: "#dcedc8", Infrastructure: "#b3e5fc",
-  Commercial: "#fff9c4", Government: "#cfd8dc",
-  Defensive: "#ffcdd2", Industrial: "#d7ccc8",
-  Magical: "#e1bee7", Demolish: "#ef5350",
+  Building: "#fff9c4",
+  Yard: "#d7ccc8",
+  Residential: "#dcedc8",
+  Infamous: "#ffcdd2",
+  Edifice: "#cfd8dc",
+  Famous: "#e1bee7",
+  Infrastructure: "#b3e5fc",
+  Demolish: "#ef5350",
 };
+
+function getStructureCategory(structure) {
+  if (!structure) return null;
+  if (structure.category) return structure.category;
+  for (const trait of structure.traits) {
+    if (trait !== "Building" && trait !== "Yard") return trait;
+  }
+  return structure.traits[0];
+}
 
 const AVAILABLE_STRUCTURES = [
     // --- ONE-LOT BUILDINGS ---
@@ -2400,7 +2413,8 @@ const UI = {
                 let content = "";
                 if (lot.buildingId) {
                     const structure = AVAILABLE_STRUCTURES.find(s => s.name === lot.structureName);
-                    style = `background-color: ${structure ? STRUCTURE_COLORS[structure.category] : "#ccc"}; color: #333;`;
+                    const category = getStructureCategory(structure);
+                    style = `background-color: ${category ? STRUCTURE_COLORS[category] : "#ccc"}; color: #333;`;
                     if (lot.isOrigin) {
                         content = lot.structureName;
                         classes += " can-build";
