@@ -1457,11 +1457,13 @@ const KingdomService = {
 
         const ruinMap = { culture: "corruption", economy: "crime", loyalty: "strife", stability: "decay" };
         const ruinPenalty = kingdom.ruins[ruinMap[ability]]?.penalty || 0;
+
+        const statusBonus = this.getStatusBonusForAbility(ability);
         
         const turnCircumstanceBonus = turnData[`turn${ability.charAt(0).toUpperCase() + ability.slice(1)}CircumstanceBonus`] || 0;
         const totalCirc = (skill.circ || 0) + turnCircumstanceBonus + (turnData.turnGenericCircumstanceBonus || 0);
 
-        finalMods[skillName] = abilityMod + profBonus + totalItemBonus - ruinPenalty + (skill.status || 0) + totalCirc - unrestPenalty;
+        finalMods[skillName] = abilityMod + profBonus + totalItemBonus - ruinPenalty + (skill.status || 0) + statusBonus + totalCirc - unrestPenalty;
         finalMods[skillName] -= rulerVacancyAllChecks;
     }
     return finalMods;
@@ -1482,6 +1484,28 @@ calculateControlDC() {
 
   getAbilityModifier(score) {
     return Math.floor((score - 10) / 2);
+  },
+
+  getStatusBonusForAbility(ability) {
+    const abilityRoles = {
+      culture: ["counselor", "magister"],
+      economy: ["treasurer", "viceroy"],
+      loyalty: ["ruler", "emissary"],
+      stability: ["general", "warden"],
+    };
+
+    const roles = abilityRoles[ability?.toLowerCase()];
+    if (!roles) return 0;
+
+    const invested = roles.some(role => {
+      const leader = kingdom.leaders?.[role];
+      return leader && leader.isInvested && leader.status !== "Vacant";
+    });
+    if (!invested) return 0;
+
+    if (kingdom.level >= 15) return 3;
+    if (kingdom.level >= 5) return 2;
+    return 1;
   },
 
   checkFeatPrerequisites(feat) {
