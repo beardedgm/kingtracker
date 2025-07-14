@@ -90,7 +90,7 @@ function setupBasicKingdom(level, structures = []) {
     unrest: 0,
     food: 10,
     armies: [],
-    farmlandHexes: 0,
+    farmlandHexes: [],
     leaders: {},
     capital: 'Cap',
     settlements: [{ name: 'Cap', gridSize: 1, lots }]
@@ -209,7 +209,7 @@ function setupInfrastructureKingdom() {
     luxuries: 0,
     ore: 0,
     armies: [],
-    farmlandHexes: 0,
+    farmlandHexes: [],
     leaders: {},
     capital: 'Cap',
     settlements: [{
@@ -234,7 +234,7 @@ function setupKingdomWithSettlement(settlement) {
     unrest: 0,
     food: 0,
     armies: [],
-    farmlandHexes: 0,
+    farmlandHexes: [],
     leaders: {},
     capital: settlement.name || 'Cap',
     settlements: [settlement]
@@ -310,6 +310,21 @@ function testConsumption() {
   assert.strictEqual(KingdomService.calculateConsumption().food, 4, 'city consumption');
 }
 
+function testFarmlandConsumption() {
+  const houses = 'Houses';
+  let lots = Array(36).fill().map(() => emptyLot());
+  const townHouseIndices = [0, 3, 18, 21];
+  townHouseIndices.forEach(i => { lots[i] = lotWith(houses); });
+  const settlement = { id: 1, name: 'FarmTown', gridSize: 6, lots, influenceHexes: [{ x: 1, y: 1 }] };
+  setupKingdomWithSettlement(settlement);
+  getKingdom().farmlandHexes = [
+    { settlementId: 1 },
+    { x: 1, y: 1 },
+    { x: 10, y: 10 }
+  ];
+  assert.strictEqual(KingdomService.calculateConsumption().food, 0, 'farmland in influence reduces consumption');
+}
+
 function testRPConversion() {
   setupBasicKingdom(1);
   getKingdom().xp = 0;
@@ -378,6 +393,7 @@ try {
   testInfrastructurePlacement();
   testCanUpgradeSettlement();
   testConsumption();
+  testFarmlandConsumption();
   testRPConversion();
   testStatusBonus();
   console.log('All tests passed.');
