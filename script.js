@@ -2019,11 +2019,14 @@ const TurnService = {
         const consumption = KingdomService.calculateConsumption();
         kingdom.food = Math.max(0, kingdom.food - consumption.food);
         const unspentRP = turnData.turnResourcePoints || 0;
-        kingdom.xp = Math.min(CONFIG.XP_CAP, kingdom.xp + (turnData.turnXP || 0) + unspentRP);
+        const rpToXP = Math.min(unspentRP, 120);
+        const rpToTreasury = unspentRP - rpToXP;
+        kingdom.xp = Math.min(CONFIG.XP_CAP, kingdom.xp + (turnData.turnXP || 0) + rpToXP);
+        if (rpToTreasury > 0) kingdom.treasury += rpToTreasury;
         kingdom.unrest = turnData.turnUnrest || 0;
         kingdom.fame = 0;
-        if (unspentRP > 0) {
-          ErrorHandler.showSuccess(`${unspentRP} unspent RP converted to Kingdom XP.`);
+        if (rpToXP > 0) {
+          ErrorHandler.showSuccess(`${rpToXP} unspent RP converted to Kingdom XP.`);
         }
 
         KingdomService.updateRuin("corruption", turnData.turnCorruption || 0);
