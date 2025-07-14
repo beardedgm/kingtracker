@@ -234,7 +234,11 @@ const KINGDOM_SIZE_TABLE = [
 
 const KINGDOM_MILESTONES = [
   { id: 'first-expansion', name: 'First Expansion', xp: 10, condition: k => k.size >= 2 },
-  { id: 'growing-reputation', name: 'Growing Reputation', xp: 5, condition: k => k.fame >= 5 }
+  { id: 'growing-reputation', name: 'Growing Reputation', xp: 5, condition: k => k.fame >= 5 },
+  { id: 'size-10', name: 'Size 10 Reached', xp: 40, condition: k => k.size >= 10 },
+  { id: 'size-25', name: 'Size 25 Reached', xp: 60, condition: k => k.size >= 25 },
+  { id: 'size-50', name: 'Size 50 Reached', xp: 80, condition: k => k.size >= 50 },
+  { id: 'size-100', name: 'Size 100 Reached', xp: 100, condition: k => k.size >= 100 }
 ];
 
 const STRUCTURE_COLORS = {
@@ -1639,6 +1643,20 @@ calculateControlDC() {
     }
   },
 
+  spendFameForReroll() {
+    if (kingdom.fame >= 1) {
+      kingdom.fame -= 1;
+      return true;
+    }
+    return false;
+  },
+
+  spendAllFameToPreventRuin() {
+    const spent = kingdom.fame;
+    kingdom.fame = 0;
+    return spent > 0;
+  },
+
   validateKingdomState() {
     const resources = ["treasury", "food", "lumber", "luxuries", "ore", "stone"];
     resources.forEach(res => {
@@ -2003,7 +2021,7 @@ const TurnService = {
         const unspentRP = turnData.turnResourcePoints || 0;
         kingdom.xp = Math.min(CONFIG.XP_CAP, kingdom.xp + (turnData.turnXP || 0) + unspentRP);
         kingdom.unrest = turnData.turnUnrest || 0;
-        kingdom.fame = turnData.turnFame || 0;
+        kingdom.fame = 0;
         if (unspentRP > 0) {
           ErrorHandler.showSuccess(`${unspentRP} unspent RP converted to Kingdom XP.`);
         }
@@ -2222,8 +2240,10 @@ const TurnService = {
   },
 
   canAttemptClaimHex() {
-    const base = Math.max(1, Math.ceil(kingdom.level / 5));
-    return turnData.claimHexAttempts < base;
+    let maxAttempts = 1;
+    if (kingdom.level >= 10) maxAttempts = 3;
+    else if (kingdom.level >= 5) maxAttempts = 2;
+    return turnData.claimHexAttempts < maxAttempts;
   },
 
   canAttemptLeadershipActivity() {

@@ -106,12 +106,19 @@ function testCanAttemptClaimHex() {
   setTurnData({ claimHexAttempts: 1 });
   assert.strictEqual(TurnService.canAttemptClaimHex(), false, 'level 1 max 1 attempt');
 
-  setupBasicKingdom(8);
+  setupBasicKingdom(5);
   setTurnData({ claimHexAttempts: 1 });
-  assert.strictEqual(TurnService.canAttemptClaimHex(), true, 'level 8 allows two');
+  assert.strictEqual(TurnService.canAttemptClaimHex(), true, 'level 5 allows two');
 
   setTurnData({ claimHexAttempts: 2 });
-  assert.strictEqual(TurnService.canAttemptClaimHex(), false, 'level 8 after two attempts');
+  assert.strictEqual(TurnService.canAttemptClaimHex(), false, 'level 5 after two attempts');
+
+  setupBasicKingdom(10);
+  setTurnData({ claimHexAttempts: 2 });
+  assert.strictEqual(TurnService.canAttemptClaimHex(), true, 'level 10 allows three');
+
+  setTurnData({ claimHexAttempts: 3 });
+  assert.strictEqual(TurnService.canAttemptClaimHex(), false, 'level 10 after three attempts');
 }
 
 function testCanAttemptLeadershipActivity() {
@@ -404,6 +411,39 @@ function testRPConversion() {
   assert.strictEqual(getKingdom().xp, startXP + 5, 'unspent RP converted to XP');
 }
 
+function testFameSpending() {
+  setupBasicKingdom(1);
+  getKingdom().fame = 2;
+  assert.strictEqual(KingdomService.spendFameForReroll(), true, 'reroll spends fame');
+  assert.strictEqual(getKingdom().fame, 1, 'fame decreased by 1');
+  assert.strictEqual(KingdomService.spendAllFameToPreventRuin(), true, 'spend all fame');
+  assert.strictEqual(getKingdom().fame, 0, 'fame cleared');
+  assert.strictEqual(KingdomService.spendFameForReroll(), false, 'cannot spend when none');
+}
+
+function testFameResetAfterTurn() {
+  setupBasicKingdom(1);
+  getKingdom().fame = 3;
+  getKingdom().ruins = {
+    corruption: { points: 0, penalty: 0, threshold: 10 },
+    crime: { points: 0, penalty: 0, threshold: 10 },
+    decay: { points: 0, penalty: 0, threshold: 10 },
+    strife: { points: 0, penalty: 0, threshold: 10 }
+  };
+  setTurnData({
+    turnXP: 0,
+    turnUnrest: 0,
+    turnFame: 0,
+    turnResourcePoints: 0,
+    turnCorruption: 0,
+    turnCrime: 0,
+    turnDecay: 0,
+    turnStrife: 0
+  });
+  TurnService.saveTurn();
+  assert.strictEqual(getKingdom().fame, 0, 'fame reset after save');
+}
+
 function createSkills(names) {
   const obj = {};
   names.forEach(n => { obj[n] = { prof: 0, item: 0, status: 0, circ: 0, other: 0 }; });
@@ -440,15 +480,19 @@ function testStatusBonus() {
 function testMilestoneXP() {
   setupBasicKingdom(1);
   getKingdom().xp = 0;
-  getKingdom().size = 2;
+  getKingdom().size = 50;
   getKingdom().fame = 5;
   getKingdom().milestones = {};
   MilestoneService.checkMilestones();
-  assert.strictEqual(getKingdom().xp, 15, 'milestone XP granted');
+  assert.strictEqual(getKingdom().xp, 195, 'milestone XP granted');
   assert.strictEqual(getKingdom().milestones['first-expansion'], true);
   assert.strictEqual(getKingdom().milestones['growing-reputation'], true);
+  assert.strictEqual(getKingdom().milestones['size-10'], true);
+  assert.strictEqual(getKingdom().milestones['size-25'], true);
+  assert.strictEqual(getKingdom().milestones['size-50'], true);
+  assert.strictEqual(getKingdom().milestones['size-100'], undefined);
   MilestoneService.checkMilestones();
-  assert.strictEqual(getKingdom().xp, 15, 'milestone XP only once');
+  assert.strictEqual(getKingdom().xp, 195, 'milestone XP only once');
 }
 
 function testEventXP() {
@@ -476,6 +520,8 @@ try {
   testConsumption();
   testFarmlandConsumption();
   testRPConversion();
+  testFameSpending();
+  testFameResetAfterTurn();
   testStatusBonus();
   testMilestoneXP();
   testEventXP();
