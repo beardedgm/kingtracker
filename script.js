@@ -4155,9 +4155,18 @@ initEventListeners() {
         if(kingdomSheetContent) {
             kingdomSheetContent.addEventListener("click", (e) => {
                 try {
-                    const resourceButton = e.target.closest("button[data-resource]");
+                    const target = e.target.closest('a, button');
+                    if (!target) return;
+
+                    const resourceButton = target.closest("button[data-resource]");
                     if (resourceButton) {
                         this.handleResourceUpdate(resourceButton.dataset.resource, resourceButton.dataset.action);
+                        return;
+                    }
+
+                    if (target.id === 'kingdom-level-up-btn') {
+                        this.handleLevelUp();
+                        return;
                     }
                 } catch (error) {
                     console.error("Error in kingdom sheet click handler:", error);
