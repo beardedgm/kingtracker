@@ -7,6 +7,7 @@ const {
   SettlementService,
   MilestoneService,
   StructurePreview,
+  SettlementPlanner,
   getKingdom,
   setKingdom,
   setTurnData,
@@ -527,6 +528,20 @@ function testPreviewDoesNotModify() {
   assert.strictEqual(JSON.stringify(settlement), before, 'preview leaves settlement unchanged');
 }
 
+function testCalculateOptimalLayout() {
+  const settlement = createSettlement(3, Array(9).fill().map(() => emptyLot()));
+  const goals = ['Brewery', 'Brewery', 'Arena'];
+  const result = SettlementPlanner.calculateOptimalLayout(settlement, goals);
+  assert(Array.isArray(result), 'returns array');
+  assert.strictEqual(result.length, goals.length, 'length matches goals');
+  result.forEach(idx => {
+    if (idx !== null) {
+      assert.strictEqual(typeof idx, 'number');
+      assert(idx >= 0 && idx < settlement.gridSize * settlement.gridSize, 'index in range');
+    }
+  });
+}
+
 try {
   testOvercrowding();
   testCanAttemptClaimHex();
@@ -545,6 +560,7 @@ try {
   testMilestoneXP();
   testEventXP();
   testPreviewDoesNotModify();
+  testCalculateOptimalLayout();
   console.log('All tests passed.');
 } catch (err) {
   console.error('Test failed:', err);

@@ -2654,8 +2654,9 @@ const UI = {
                 return `<button class="${classes}" style="${style}" data-settlement-id="${settlement.id}" data-lot-index="${index}">${content}</button>`;
             }).join("");
 
-            html += `<li class="uk-open">
+        html += `<li class="uk-open">
                 <a class="uk-accordion-title" href="#">${settlement.name}
+                    <button class="uk-button uk-button-default uk-button-small uk-margin-small-right uk-float-right" data-plan-settlement-id="${settlement.id}">Plan</button>
                     <button class="uk-button uk-button-danger uk-button-small uk-float-right" data-delete-settlement-id="${settlement.id}">Delete</button>
                 </a>
                 <div class="uk-accordion-content">
@@ -3683,6 +3684,95 @@ const ArmyService = {
 };
 
 // ==========================================
+// SETTLEMENT PLANNER
+// ==========================================
+
+const SettlementPlanner = {
+  templates: {
+    military: ["Barracks", "Garrison", "Watchtower"],
+    economic: ["Brewery", "Market", "Shop"],
+    cultural: ["Temple", "Theater"],
+    infrastructure: ["Sewer System", "Paved Streets"]
+  },
+
+  calculateOptimalLayout(settlement, goals) {
+    const gridSize = settlement.gridSize;
+    const working = settlement.lots.map(l => ({ ...l }));
+    const placements = [];
+    for (const goal of goals) {
+      const struct = AVAILABLE_STRUCTURES.find(s => s.name === goal);
+      if (!struct) { placements.push(null); continue; }
+      const [w, h] = struct.lots;
+      let placed = false;
+      for (let idx = 0; idx < working.length; idx++) {
+        const x = idx % gridSize;
+        const y = Math.floor(idx / gridSize);
+        if (SettlementService.canPlaceStructure({ gridSize, lots: working }, x, y, w, h)) {
+          placements.push(idx);
+          for (let yy = 0; yy < h; yy++) {
+            for (let xx = 0; xx < w; xx++) {
+              working[(y + yy) * gridSize + (x + xx)] = { buildingId: -1, isOrigin: false, structureName: goal };
+            }
+          }
+          placed = true;
+          break;
+        }
+      }
+      if (!placed) placements.push(null);
+    }
+    return placements;
+  },
+
+  showTemplateModal(settlementId) {
+    const settlement = kingdom.settlements.find(s => s.id === settlementId);
+    if (!settlement) return;
+
+    let html = '<div class="uk-modal-body"><h4>Select Template</h4><ul class="uk-list">';
+    Object.keys(this.templates).forEach(key => {
+      const name = key.charAt(0).toUpperCase() + key.slice(1);
+      html += `<li><a href="#" class="select-template" data-tpl="${key}">${name}</a></li>`;
+    });
+    html += '</ul></div>';
+
+    const modal = UIkit.modal.dialog(html);
+
+    modal.$el.addEventListener('mouseover', e => {
+      if (e.target.matches('.select-template')) {
+        this.previewTemplate(settlement, e.target.dataset.tpl);
+      }
+    });
+
+    modal.$el.addEventListener('mouseout', e => {
+      if (e.target.matches('.select-template')) {
+        StructurePreview.clearPreview();
+      }
+    });
+
+    modal.$el.addEventListener('click', e => {
+      if (e.target.matches('.select-template')) {
+        e.preventDefault();
+        StructurePreview.clearPreview();
+        modal.hide();
+      }
+    });
+  },
+
+  previewTemplate(settlement, tplName) {
+    StructurePreview.clearPreview();
+    const goals = this.templates[tplName] || [];
+    const placements = this.calculateOptimalLayout(settlement, goals);
+    placements.forEach(idx => {
+      if (idx === null) return;
+      const el = document.querySelector(`.grid-lot[data-settlement-id="${settlement.id}"][data-lot-index="${idx}"]`);
+      if (el) {
+        el.classList.add('preview-valid');
+        StructurePreview.previewLots.push(el);
+      }
+    });
+  }
+};
+
+// ==========================================
 // KINGDOM CREATION LOGIC
 // ==========================================
 
@@ -4229,6 +4319,15 @@ initEventListeners() {
                         e.preventDefault();
                         e.stopPropagation();
                         SettlementService.deleteSettlement(deleteButton.dataset.deleteSettlementId);
+                        return;
+                    }
+
+                    const planButton = e.target.closest("[data-plan-settlement-id]");
+                    if (planButton) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        SettlementPlanner.showTemplateModal(parseInt(planButton.dataset.planSettlementId, 10));
+                        return;
                     }
                 } catch (error) {
                     console.error("Error in settlements click handler:", error);
@@ -4359,6 +4458,7 @@ if (typeof module !== "undefined" && module.exports) {
     getTurnData,
     setTurnData,
     MilestoneService,
-    StructurePreview
+    StructurePreview,
+    SettlementPlanner
   };
 }
