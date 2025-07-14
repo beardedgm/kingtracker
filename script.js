@@ -1561,6 +1561,16 @@ calculateControlDC() {
     if (ruin.points < 0) ruin.points = 0;
   },
 
+  updateRuinThresholds() {
+    const newThreshold = 10 + Math.floor(kingdom.level / 3);
+    for (const ruinType in kingdom.ruins) {
+      const ruin = kingdom.ruins[ruinType];
+      if (ruin.threshold < newThreshold) {
+        ruin.threshold = newThreshold;
+      }
+    }
+  },
+
   getSettlementMaxItemBonus(settlement) {
     const blockIndices = new Set();
     settlement.lots.forEach((lot, idx) => {
@@ -2898,6 +2908,7 @@ modal.$el.addEventListener('hide', () => {
     modal.$el.querySelector('#level-up-finish-btn').addEventListener('click', () => {
         const finalize = () => {
             kingdom.level = newLevel;
+            KingdomService.updateRuinThresholds();
             kingdom.xp -= CONFIG.XP_CAP;
             SaveService.save();
             if (typeof document !== 'undefined') UI.renderAll();
