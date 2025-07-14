@@ -3332,7 +3332,7 @@ const SettlementService = {
       }
     }
 
-    if (['Pier', 'Waterfront', 'Lumberyard'].includes(structure.name)) {
+    if (['Pier', 'Waterfront', 'Lumberyard', 'Mill'].includes(structure.name)) {
       if (!this.isAdjacentToWater(settlement, lotIndex, width, height)) {
         ErrorHandler.showError(`${structure.name} must be built adjacent to water.`);
         return false;
