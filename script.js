@@ -2870,10 +2870,10 @@ const QuickActions = {
   render() {
     return `
       <div class="uk-button-group">
-        <button id="qa-collect" class="uk-button uk-button-primary">Collect Resources</button>
-        <button id="qa-consume" class="uk-button uk-button-primary">Pay Consumption</button>
-        <button id="qa-events" class="uk-button uk-button-primary">Check Events</button>
-        <button id="qa-auto" class="uk-button uk-button-secondary">Auto-Optimize Turn</button>
+        <button id="qa-collect" class="uk-button uk-button-primary"><span uk-icon="bolt"></span> Collect Resources</button>
+        <button id="qa-consume" class="uk-button uk-button-primary"><span uk-icon="credit-card"></span> Pay Consumption</button>
+        <button id="qa-events" class="uk-button uk-button-primary"><span uk-icon="history"></span> Check Events</button>
+        <button id="qa-auto" class="uk-button uk-button-secondary"><span uk-icon="play"></span> Auto-Optimize Turn</button>
       </div>`;
   },
 
