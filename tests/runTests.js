@@ -88,6 +88,7 @@ function setupBasicKingdom(level, structures = []) {
     level,
     size: 1,
     fame: 0,
+    infamy: 0,
     unrest: 0,
     food: 10,
     armies: [],
@@ -414,16 +415,19 @@ function testRPConversion() {
 function testFameSpending() {
   setupBasicKingdom(1);
   getKingdom().fame = 2;
+  getKingdom().infamy = 1;
   assert.strictEqual(KingdomService.spendFameForReroll(), true, 'reroll spends fame');
   assert.strictEqual(getKingdom().fame, 1, 'fame decreased by 1');
-  assert.strictEqual(KingdomService.spendAllFameToPreventRuin(), true, 'spend all fame');
+  assert.strictEqual(KingdomService.spendAllFameToPreventRuin(), true, 'spend all fame/infamy');
   assert.strictEqual(getKingdom().fame, 0, 'fame cleared');
+  assert.strictEqual(getKingdom().infamy, 0, 'infamy cleared');
   assert.strictEqual(KingdomService.spendFameForReroll(), false, 'cannot spend when none');
 }
 
 function testFameResetAfterTurn() {
   setupBasicKingdom(1);
   getKingdom().fame = 3;
+  getKingdom().infamy = 2;
   getKingdom().ruins = {
     corruption: { points: 0, penalty: 0, threshold: 10 },
     crime: { points: 0, penalty: 0, threshold: 10 },
@@ -442,6 +446,7 @@ function testFameResetAfterTurn() {
   });
   TurnService.saveTurn();
   assert.strictEqual(getKingdom().fame, 0, 'fame reset after save');
+  assert.strictEqual(getKingdom().infamy, 0, 'infamy reset after save');
 }
 
 function createSkills(names) {

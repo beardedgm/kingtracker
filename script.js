@@ -1652,8 +1652,9 @@ calculateControlDC() {
   },
 
   spendAllFameToPreventRuin() {
-    const spent = kingdom.fame;
+    const spent = (kingdom.fame || 0) + (kingdom.infamy || 0);
     kingdom.fame = 0;
+    kingdom.infamy = 0;
     return spent > 0;
   },
 
@@ -2025,6 +2026,7 @@ const TurnService = {
         if (rpToTreasury > 0) kingdom.treasury += rpToTreasury;
         kingdom.unrest = turnData.turnUnrest || 0;
         kingdom.fame = 0;
+        kingdom.infamy = 0;
         if (rpToXP > 0) {
           ErrorHandler.showSuccess(`${rpToXP} unspent RP converted to Kingdom XP.`);
         }
