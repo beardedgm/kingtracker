@@ -242,6 +242,36 @@ function setupKingdomWithSettlement(settlement) {
   setTurnData({ turnConsumptionModifier: 0 });
 }
 
+function setupUpgradeKingdom() {
+  setKingdom({
+    level: 1,
+    size: 1,
+    fame: 0,
+    unrest: 0,
+    food: 10,
+    treasury: 50,
+    lumber: 10,
+    stone: 10,
+    luxuries: 0,
+    ore: 0,
+    armies: [],
+    farmlandHexes: [],
+    leaders: {},
+    capital: 'Cap',
+    settlements: [{
+      id: 1,
+      name: 'Cap',
+      gridSize: 2,
+      lots: [
+        { buildingId: 100, isOrigin: true, structureName: 'Barracks' },
+        emptyLot(),
+        emptyLot(),
+        emptyLot()
+      ]
+    }]
+  });
+}
+
 function testInfrastructurePlacement() {
   setupInfrastructureKingdom();
   const settlement = getKingdom().settlements[0];
@@ -249,6 +279,28 @@ function testInfrastructurePlacement() {
   SettlementService.placeStructure(1, 0, 'Paved Streets');
   assert.strictEqual(settlement.infrastructure.pavedStreets, true, 'paved streets flag set');
   assert.deepStrictEqual(settlement.lots, beforeLots, 'lots remain unchanged');
+}
+
+function testUpgradeCosts() {
+  setupUpgradeKingdom();
+  const settlement = getKingdom().settlements[0];
+  const startTreasure = getKingdom().treasury;
+  const startLumber = getKingdom().lumber;
+  const startStone = getKingdom().stone;
+
+  SettlementService.placeStructure(1, 0, 'Garrison');
+
+  const newStruct = AVAILABLE_STRUCTURES.find(s => s.name === 'Garrison');
+  const oldStruct = AVAILABLE_STRUCTURES.find(s => s.name === 'Barracks');
+  const rpDiff = Math.max(0, (newStruct.cost.rp || 0) - (oldStruct.cost.rp || 0));
+  const lumberDiff = Math.max(0, (newStruct.cost.lumber || 0) - (oldStruct.cost.lumber || 0));
+  const stoneDiff = Math.max(0, (newStruct.cost.stone || 0) - (oldStruct.cost.stone || 0));
+
+  assert.strictEqual(getKingdom().treasury, startTreasure - rpDiff, 'treasury reduced by upgrade RP cost');
+  assert.strictEqual(getKingdom().lumber, startLumber - lumberDiff, 'lumber reduced by upgrade cost');
+  assert.strictEqual(getKingdom().stone, startStone - stoneDiff, 'stone reduced by upgrade cost');
+  assert.strictEqual(settlement.lots[0].structureName, 'Garrison', 'structure upgraded');
+  assert.strictEqual(settlement.lots[1].structureName, 'Garrison', 'upgrade expanded to second lot');
 }
 
 function testCanUpgradeSettlement() {
@@ -391,6 +443,7 @@ try {
   testPhaseOrder();
   testPhaseProgression();
   testInfrastructurePlacement();
+  testUpgradeCosts();
   testCanUpgradeSettlement();
   testConsumption();
   testFarmlandConsumption();

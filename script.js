@@ -3136,6 +3136,24 @@ const SettlementService = {
         return;
     }
 
+    const existingId = settlement.lots[lotIndex].buildingId;
+    const existingName = settlement.lots[lotIndex].structureName;
+    const existingStruct = AVAILABLE_STRUCTURES.find(s => s.name === existingName);
+    const isUpgrade = !!(existingId && structure.upgradeFrom && structure.upgradeFrom.includes(existingName));
+
+    let costs = { ...structure.cost };
+    if (isUpgrade && existingStruct) {
+        costs = {};
+        const resources = new Set([...Object.keys(structure.cost || {}), ...Object.keys(existingStruct.cost || {})]);
+        resources.forEach(res => {
+            const diff = (structure.cost[res] || 0) - (existingStruct.cost[res] || 0);
+            costs[res] = diff > 0 ? diff : 0;
+        });
+    } else if (existingId) {
+        ErrorHandler.showError("Lot occupied. Demolish before building here.");
+        return;
+    }
+
     // First, handle the special case for "Clear Lot" (Demolish)
     if (structure.name === "Clear Lot") {
         const oldBuildingId = settlement.lots[lotIndex].buildingId;
@@ -3157,7 +3175,6 @@ const SettlementService = {
     // ===================================================================
     // NEW LOGIC: Check for all required resources (RP and commodities)
     // ===================================================================
-    const costs = structure.cost;
     const canAfford = Object.keys(costs).every(resource => {
         const cost = costs[resource];
         const resourceKey = resource === 'rp' ? 'treasury' : resource;
@@ -3211,19 +3228,31 @@ const SettlementService = {
     const [width, height] = structure.lots;
     const startX = lotIndex % settlement.gridSize;
     const startY = Math.floor(lotIndex / settlement.gridSize);
-    
+
+    let removedLots = null;
+    if (isUpgrade) {
+        removedLots = settlement.lots.map(l => ({ ...l }));
+        settlement.lots.forEach((lot, idx) => {
+            if (lot.buildingId === existingId) {
+                settlement.lots[idx] = { buildingId: null, isOrigin: false, structureName: null };
+            }
+        });
+    }
+
     if (!this.canPlaceStructure(settlement, startX, startY, width, height)) {
         ErrorHandler.showError("Not enough space to build here.");
-        // We should refund the cost if the placement check fails for some reason
         Object.keys(costs).forEach(resource => {
             const cost = costs[resource];
             const resourceKey = resource === 'rp' ? 'treasury' : resource;
             kingdom[resourceKey] += cost;
         });
+        if (isUpgrade && removedLots) {
+            settlement.lots = removedLots;
+        }
         return;
     }
 
-    const buildingId = Date.now();
+    const buildingId = isUpgrade ? existingId : Date.now();
     for (let y = startY; y < startY + height; y++) {
       for (let x = startX; x < startX + width; x++) {
         settlement.lots[y * settlement.gridSize + x] = { buildingId, isOrigin: x === startX && y === startY, structureName };
