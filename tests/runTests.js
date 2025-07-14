@@ -399,7 +399,7 @@ function testRPConversion() {
     turnXP: 0,
     turnUnrest: 0,
     turnFame: 0,
-    turnResourcePoints: 5,
+    turnResourcePoints: 150,
     turnCorruption: 0,
     turnCrime: 0,
     turnDecay: 0,
@@ -407,8 +407,8 @@ function testRPConversion() {
   });
   const startXP = getKingdom().xp || 0;
   TurnService.saveTurn();
-  assert.strictEqual(getKingdom().treasury, 10, 'treasury unchanged after save');
-  assert.strictEqual(getKingdom().xp, startXP + 5, 'unspent RP converted to XP');
+  assert.strictEqual(getKingdom().treasury, 40, 'unconverted RP added to treasury');
+  assert.strictEqual(getKingdom().xp, startXP + 120, 'only 120 RP converted to XP');
 }
 
 function testFameSpending() {
