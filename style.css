@@ -95,3 +95,12 @@
     text-align: left;
     font-weight: bold;
 }
+
+/* Preview highlight classes */
+.preview-valid {
+    outline: 2px solid #32d296;
+}
+
+.preview-invalid {
+    outline: 2px solid #f0506e;
+}
