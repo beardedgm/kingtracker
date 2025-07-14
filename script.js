@@ -3091,7 +3091,9 @@ const ModalService = {
 
 modal.$el.addEventListener('hide', () => {
         setTimeout(() => {
-            ModalCleanup.ensureCleanState();
+            if (!this._levelUpFlow) {
+                ModalCleanup.ensureCleanState();
+            }
         }, 300);
     });
 
