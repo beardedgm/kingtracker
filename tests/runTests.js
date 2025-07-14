@@ -5,6 +5,7 @@ const {
   AVAILABLE_STRUCTURES,
   TurnService,
   SettlementService,
+  MilestoneService,
   getKingdom,
   setKingdom,
   setTurnData,
@@ -436,6 +437,33 @@ function testStatusBonus() {
   assert.strictEqual(KingdomService.getStatusBonusForAbility('loyalty'), 3, 'level 16 invested gives +3');
 }
 
+function testMilestoneXP() {
+  setupBasicKingdom(1);
+  getKingdom().xp = 0;
+  getKingdom().size = 2;
+  getKingdom().fame = 5;
+  getKingdom().milestones = {};
+  MilestoneService.checkMilestones();
+  assert.strictEqual(getKingdom().xp, 15, 'milestone XP granted');
+  assert.strictEqual(getKingdom().milestones['first-expansion'], true);
+  assert.strictEqual(getKingdom().milestones['growing-reputation'], true);
+  MilestoneService.checkMilestones();
+  assert.strictEqual(getKingdom().xp, 15, 'milestone XP only once');
+}
+
+function testEventXP() {
+  setupBasicKingdom(1);
+  setTurnData({ currentPhase: 'activity', appliedUnrest: true, eventChecked: false });
+  const seq = [0.99, 0.24];
+  let i = 0;
+  const origRandom = Math.random;
+  Math.random = () => seq[i++];
+  TurnService.checkForEvent();
+  Math.random = origRandom;
+  assert.strictEqual(getTurnData().turnXP, 5, 'event XP applied');
+  assert.strictEqual(getTurnData().currentEvent, 'Discovery');
+}
+
 try {
   testOvercrowding();
   testCanAttemptClaimHex();
@@ -449,6 +477,8 @@ try {
   testFarmlandConsumption();
   testRPConversion();
   testStatusBonus();
+  testMilestoneXP();
+  testEventXP();
   console.log('All tests passed.');
 } catch (err) {
   console.error('Test failed:', err);
