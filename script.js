@@ -1423,7 +1423,7 @@ const KingdomService = {
 
     // Calculate penalties
     let unrestPenalty = kingdom.unrest >= 15 ? 4 : kingdom.unrest >= 10 ? 3 : kingdom.unrest >= 5 ? 2 : kingdom.unrest >= 1 ? 1 : 0;
-    let rulerVacancyCheckPenalty = (kingdom.leaders?.ruler?.status === "Vacant") ? 1 : 0;
+    let rulerVacancyAllChecks = (kingdom.leaders?.ruler?.status === "Vacant") ? 1 : 0;
 
     // Handle skill increases from leveling up
     for (const skillName in skillData) {
@@ -1461,7 +1461,8 @@ const KingdomService = {
         const turnCircumstanceBonus = turnData[`turn${ability.charAt(0).toUpperCase() + ability.slice(1)}CircumstanceBonus`] || 0;
         const totalCirc = (skill.circ || 0) + turnCircumstanceBonus + (turnData.turnGenericCircumstanceBonus || 0);
 
-        finalMods[skillName] = abilityMod + profBonus + totalItemBonus - ruinPenalty + (skill.status || 0) + totalCirc - unrestPenalty - rulerVacancyCheckPenalty;
+        finalMods[skillName] = abilityMod + profBonus + totalItemBonus - ruinPenalty + (skill.status || 0) + totalCirc - unrestPenalty;
+        finalMods[skillName] -= rulerVacancyAllChecks;
     }
     return finalMods;
   },
@@ -1567,6 +1568,21 @@ calculateControlDC() {
       return kingdom.level >= 15 && builtBlocks >= 10;
     }
     return false;
+  },
+
+  applyCommodityGain(commodityType, amount) {
+    const sizeData = KINGDOM_SIZE_TABLE.find(row => kingdom.size >= row.min && kingdom.size <= row.max);
+    const bonuses = this.calculateStructureBonuses();
+    const maxStorage = sizeData.storage + (bonuses.storage[commodityType] || 0);
+    const newTotal = kingdom[commodityType] + amount;
+
+    if (newTotal > maxStorage) {
+      const lost = newTotal - maxStorage;
+      kingdom[commodityType] = maxStorage;
+      ErrorHandler.showError(`Gained ${amount} ${commodityType}, but ${lost} was lost due to storage limits.`);
+    } else {
+      kingdom[commodityType] = newTotal;
+    }
   }
 };
 
@@ -1855,10 +1871,13 @@ const TurnService = {
       ErrorHandler.withErrorHandling(() => {
         const consumption = KingdomService.calculateConsumption();
         kingdom.food = Math.max(0, kingdom.food - consumption.food);
-        kingdom.xp = Math.min(CONFIG.XP_CAP, kingdom.xp + (turnData.turnXP || 0));
+        const unspentRP = turnData.turnResourcePoints || 0;
+        kingdom.xp = Math.min(CONFIG.XP_CAP, kingdom.xp + (turnData.turnXP || 0) + unspentRP);
         kingdom.unrest = turnData.turnUnrest || 0;
         kingdom.fame = turnData.turnFame || 0;
-        kingdom.treasury += turnData.turnResourcePoints || 0;
+        if (unspentRP > 0) {
+          ErrorHandler.showSuccess(`${unspentRP} unspent RP converted to Kingdom XP.`);
+        }
 
         KingdomService.updateRuin("corruption", turnData.turnCorruption || 0);
         KingdomService.updateRuin("crime", turnData.turnCrime || 0);

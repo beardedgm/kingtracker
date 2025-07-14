@@ -12,7 +12,13 @@ const {
 } = require('../script');
 
 // Provide very small stubs for browser dependent globals used by the services
-global.UIkit = { notification: () => {}, modal: { confirm: () => Promise.resolve({}), alert: () => Promise.resolve({}) } };
+global.UIkit = {
+  notification: () => {},
+  modal: {
+    confirm: () => ({ then: (cb) => { cb(); return Promise.resolve(); } }),
+    alert: () => Promise.resolve({})
+  }
+};
 global.UI = { renderTurnTracker: () => {}, renderAll: () => {} };
 global.localStorage = { getItem: () => null, setItem: () => {} };
 // No DOM in test environment
@@ -304,6 +310,32 @@ function testConsumption() {
   assert.strictEqual(KingdomService.calculateConsumption().food, 4, 'city consumption');
 }
 
+function testRPConversion() {
+  setupBasicKingdom(1);
+  getKingdom().xp = 0;
+  getKingdom().treasury = 10;
+  getKingdom().ruins = {
+    corruption: { points: 0, penalty: 0, threshold: 10 },
+    crime: { points: 0, penalty: 0, threshold: 10 },
+    decay: { points: 0, penalty: 0, threshold: 10 },
+    strife: { points: 0, penalty: 0, threshold: 10 }
+  };
+  setTurnData({
+    turnXP: 0,
+    turnUnrest: 0,
+    turnFame: 0,
+    turnResourcePoints: 5,
+    turnCorruption: 0,
+    turnCrime: 0,
+    turnDecay: 0,
+    turnStrife: 0
+  });
+  const startXP = getKingdom().xp || 0;
+  TurnService.saveTurn();
+  assert.strictEqual(getKingdom().treasury, 10, 'treasury unchanged after save');
+  assert.strictEqual(getKingdom().xp, startXP + 5, 'unspent RP converted to XP');
+}
+
 try {
   testOvercrowding();
   testCanAttemptClaimHex();
@@ -313,6 +345,7 @@ try {
   testInfrastructurePlacement();
   testCanUpgradeSettlement();
   testConsumption();
+  testRPConversion();
   console.log('All tests passed.');
 } catch (err) {
   console.error('Test failed:', err);
