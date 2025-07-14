@@ -1527,9 +1527,9 @@ calculateControlDC() {
     });
     if (!invested) return 0;
 
-    if (kingdom.level >= 15) return 3;
-    if (kingdom.level >= 5) return 2;
-    return 1;
+    if (kingdom.level >= 16) return 3;
+    if (kingdom.level >= 8) return 2;
+    return 1; // levels 1-7
   },
 
   checkFeatPrerequisites(feat) {
