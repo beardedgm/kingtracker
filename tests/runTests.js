@@ -11,7 +11,9 @@ const {
   getKingdom,
   setKingdom,
   setTurnData,
-  getTurnData
+  getTurnData,
+  SaveService,
+  QuickActions
 } = require('../script');
 
 // Provide very small stubs for browser dependent globals used by the services
@@ -542,6 +544,19 @@ function testCalculateOptimalLayout() {
   });
 }
 
+function testShortcutHandlers() {
+  let saved = false;
+  let ended = false;
+  SaveService.save = () => { saved = true; };
+  TurnService.saveTurn = () => { ended = true; };
+
+  QuickActions.handleShortcuts({ ctrlKey: true, key: 's', preventDefault() {} });
+  assert.strictEqual(saved, true, 'Ctrl+S triggers save');
+
+  QuickActions.handleShortcuts({ ctrlKey: true, key: 'E', preventDefault() {} });
+  assert.strictEqual(ended, true, 'Ctrl+E triggers save turn');
+}
+
 try {
   testOvercrowding();
   testCanAttemptClaimHex();
@@ -561,6 +576,7 @@ try {
   testEventXP();
   testPreviewDoesNotModify();
   testCalculateOptimalLayout();
+  testShortcutHandlers();
   console.log('All tests passed.');
 } catch (err) {
   console.error('Test failed:', err);
