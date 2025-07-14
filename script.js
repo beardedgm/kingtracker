@@ -2861,8 +2861,52 @@ const UI = {
     this.renderHistory();
     this.renderTurnTracker();
     this.renderSettlements();
-    this.renderArmies();
+  this.renderArmies();
 this.renderKingdomManagement();
+  }
+};
+
+const QuickActions = {
+  render() {
+    return `
+      <div class="uk-button-group">
+        <button id="qa-collect" class="uk-button uk-button-primary">Collect Resources</button>
+        <button id="qa-consume" class="uk-button uk-button-primary">Pay Consumption</button>
+        <button id="qa-events" class="uk-button uk-button-primary">Check Events</button>
+        <button id="qa-auto" class="uk-button uk-button-secondary">Auto-Optimize Turn</button>
+      </div>`;
+  },
+
+  init() {
+    if (typeof document === 'undefined') return;
+    const bar = document.getElementById('quick-actions-bar');
+    if (!bar) return;
+    bar.innerHTML = this.render();
+    bar.addEventListener('click', (e) => {
+      const id = e.target.id;
+      if (id === 'qa-collect') TurnService.rollResources();
+      else if (id === 'qa-consume') TurnService.payConsumption();
+      else if (id === 'qa-events') TurnService.checkForEvent();
+      else if (id === 'qa-auto') {
+        TurnService.rollResources();
+        TurnService.payConsumption();
+        TurnService.applyUpkeepEffects();
+        TurnService.checkForEvent();
+      }
+    });
+    document.addEventListener('keydown', this.handleShortcuts);
+  },
+
+  handleShortcuts(e) {
+    if (!e.ctrlKey && !e.metaKey) return;
+    const key = e.key.toLowerCase();
+    if (key === 's') {
+      e.preventDefault();
+      SaveService.save();
+    } else if (key === 'e') {
+      e.preventDefault();
+      TurnService.saveTurn();
+    }
   }
 };
 
@@ -4403,7 +4447,10 @@ function initializeApplication() {
   ErrorHandler.withErrorHandling(() => {
     console.log(`Initializing Kingdom Tracker v${CONFIG.VERSION}`);
     SaveService.load();
-    if (typeof document !== 'undefined') UI.renderAll();
+    if (typeof document !== 'undefined') {
+      UI.renderAll();
+      QuickActions.init();
+    }
     TurnService.clearTurn();
     EventHandlers.initEventListeners();
     CreationService.calculateAndRenderScores();
@@ -4459,6 +4506,8 @@ if (typeof module !== "undefined" && module.exports) {
     setTurnData,
     MilestoneService,
     StructurePreview,
-    SettlementPlanner
+    SettlementPlanner,
+    SaveService,
+    QuickActions
   };
 }
