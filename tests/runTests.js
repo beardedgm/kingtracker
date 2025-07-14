@@ -6,6 +6,7 @@ const {
   TurnService,
   SettlementService,
   MilestoneService,
+  StructurePreview,
   getKingdom,
   setKingdom,
   setTurnData,
@@ -516,6 +517,16 @@ function testEventXP() {
   assert.strictEqual(getTurnData().currentEvent, 'Discovery');
 }
 
+function testPreviewDoesNotModify() {
+  setupInfrastructureKingdom();
+  const settlement = getKingdom().settlements[0];
+  const before = JSON.stringify(settlement);
+  const struct = AVAILABLE_STRUCTURES[0];
+  StructurePreview.showPlacementPreview(settlement, 0, struct);
+  StructurePreview.clearPreview();
+  assert.strictEqual(JSON.stringify(settlement), before, 'preview leaves settlement unchanged');
+}
+
 try {
   testOvercrowding();
   testCanAttemptClaimHex();
@@ -533,6 +544,7 @@ try {
   testStatusBonus();
   testMilestoneXP();
   testEventXP();
+  testPreviewDoesNotModify();
   console.log('All tests passed.');
 } catch (err) {
   console.error('Test failed:', err);

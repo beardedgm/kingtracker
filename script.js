@@ -214,6 +214,7 @@ const KINGDOM_GOVERNMENTS = {
   },
 };
 
+
 const KINGDOM_ADVANCEMENT_TABLE = [
   { level: 1, dc: 14 }, { level: 2, dc: 15 }, { level: 3, dc: 16 },
   { level: 4, dc: 18 }, { level: 5, dc: 20 }, { level: 6, dc: 22 },
@@ -3535,22 +3536,78 @@ const SettlementService = {
     html += "</ul></div>";
 
     const modal = UIkit.modal.dialog(html);
-    
+
     modal.$el.addEventListener('hide', () => {
+        StructurePreview.clearPreview();
         setTimeout(() => {
             ModalCleanup.ensureCleanState();
         }, 300);
     });
-    
+
+    modal.$el.addEventListener('mouseover', (e) => {
+      if (e.target.matches('.select-structure')) {
+        const struct = AVAILABLE_STRUCTURES.find(s => s.name === e.target.dataset.sName);
+        if (struct) {
+          StructurePreview.showPlacementPreview(settlement, lotIndex, struct);
+        }
+      }
+    });
+
+    modal.$el.addEventListener('mouseout', (e) => {
+      if (e.target.matches('.select-structure')) {
+        StructurePreview.clearPreview();
+      }
+    });
+
     modal.$el.addEventListener("click", (e) => {
       if (e.target.matches(".select-structure")) {
         e.preventDefault();
+        StructurePreview.clearPreview();
         // The placeStructure function already handles demolish logic
         this.placeStructure(settlementId, lotIndex, e.target.dataset.sName);
         modal.hide();
       }
     });
   },
+};
+
+// ==========================================
+// STRUCTURE PLACEMENT PREVIEW
+// ==========================================
+
+const StructurePreview = {
+  previewLots: [],
+  showPlacementPreview(settlement, startIndex, structure) {
+    if (typeof document === 'undefined') return;
+    this.clearPreview();
+    if (!structure) return;
+
+    const [width, height] = structure.lots;
+    const startX = startIndex % settlement.gridSize;
+    const startY = Math.floor(startIndex / settlement.gridSize);
+    const valid = SettlementService.canPlaceStructure(settlement, startX, startY, width, height);
+    const cls = valid ? 'preview-valid' : 'preview-invalid';
+
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = (startY + y) * settlement.gridSize + (startX + x);
+        const el = document.querySelector(`.grid-lot[data-settlement-id="${settlement.id}"][data-lot-index="${idx}"]`);
+        if (el) {
+          el.classList.add(cls);
+          this.previewLots.push(el);
+        }
+      }
+    }
+  },
+
+  clearPreview() {
+    if (typeof document === 'undefined') {
+      this.previewLots = [];
+      return;
+    }
+    this.previewLots.forEach(el => el.classList.remove('preview-valid', 'preview-invalid'));
+    this.previewLots = [];
+  }
 };
 
 const ArmyService = {
@@ -4301,6 +4358,7 @@ if (typeof module !== "undefined" && module.exports) {
     setKingdom,
     getTurnData,
     setTurnData,
-    MilestoneService
+    MilestoneService,
+    StructurePreview
   };
 }
