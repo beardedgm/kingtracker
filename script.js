@@ -3086,10 +3086,55 @@ const SettlementService = {
     return true;
   },
 
+  isAdjacentToWater(settlement, startIndex, width, height) {
+    if (!settlement || !settlement.waterBorders) return true;
+    const startX = startIndex % settlement.gridSize;
+    const startY = Math.floor(startIndex / settlement.gridSize);
+    const endX = startX + width - 1;
+    const endY = startY + height - 1;
+
+    const { north, south, east, west } = settlement.waterBorders;
+    if (north && startY === 0) return true;
+    if (south && endY === settlement.gridSize - 1) return true;
+    if (west && startX === 0) return true;
+    if (east && endX === settlement.gridSize - 1) return true;
+    return false;
+  },
+
+  validateStructureRequirements(structure, settlement, lotIndex) {
+    const [width, height] = structure.lots;
+
+    if (structure.name === 'Luxury Store') {
+      const block = getBlockIndex(lotIndex, settlement.gridSize);
+      const hasLuxuryAnchor = settlement.lots.some((lot, idx) => {
+        if (!lot.structureName) return false;
+        if (getBlockIndex(idx, settlement.gridSize) !== block) return false;
+        return lot.structureName === 'Mansion' || lot.structureName === 'Noble Villa';
+      });
+      if (!hasLuxuryAnchor) {
+        ErrorHandler.showError('Luxury Store must share a block with a Mansion or Noble Villa.');
+        return false;
+      }
+    }
+
+    if (['Pier', 'Waterfront', 'Lumberyard'].includes(structure.name)) {
+      if (!this.isAdjacentToWater(settlement, lotIndex, width, height)) {
+        ErrorHandler.showError(`${structure.name} must be built adjacent to water.`);
+        return false;
+      }
+    }
+
+    return true;
+  },
+
   placeStructure(settlementId, lotIndex, structureName) {
     const settlement = kingdom.settlements.find(s => s.id == settlementId);
     const structure = AVAILABLE_STRUCTURES.find(s => s.name === structureName);
     if (!structure || !settlement) return;
+
+    if (!this.validateStructureRequirements(structure, settlement, lotIndex)) {
+        return;
+    }
 
     // First, handle the special case for "Clear Lot" (Demolish)
     if (structure.name === "Clear Lot") {
