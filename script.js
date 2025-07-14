@@ -93,7 +93,7 @@ const RANDOM_KINGDOM_EVENTS = [
     { min: 15, max: 17, name: "Crop Failure" },
     { min: 18, max: 19, name: "Cult Activity" },
     { min: 20, max: 22, name: "Diplomatic Overture" },
-    { min: 23, max: 25, name: "Discovery" },
+    { min: 23, max: 25, name: "Discovery", xp: 5 },
     { min: 26, max: 27, name: "Drug Den" },
     { min: 28, max: 28, name: "Economic Surge" },
     { min: 29, max: 31, name: "Expansion Demand" },
@@ -111,12 +111,12 @@ const RANDOM_KINGDOM_EVENTS = [
     { min: 59, max: 61, name: "Nature's Blessing" },
     { min: 62, max: 64, name: "New Subjects" },
     { min: 65, max: 67, name: "Noblesse Oblige" },
-    { min: 68, max: 70, name: "Outstanding Success" },
+    { min: 68, max: 70, name: "Outstanding Success", xp: 5 },
     { min: 71, max: 72, name: "Pilgrimage" },
     { min: 73, max: 74, name: "Plague" },
     { min: 75, max: 78, name: "Political Calm" },
     { min: 79, max: 81, name: "Public Scandal" },
-    { min: 82, max: 82, name: "Remarkable Treasure" },
+    { min: 82, max: 82, name: "Remarkable Treasure", xp: 10 },
     { min: 83, max: 83, name: "Sacrifices" },
     { min: 84, max: 85, name: "Sensational Crime" },
     { min: 86, max: 90, name: "Squatters" },
@@ -230,6 +230,11 @@ const KINGDOM_SIZE_TABLE = [
   { min: 25, max: 49, mod: 2, die: 8, storage: 12 },
   { min: 50, max: 99, mod: 3, die: 10, storage: 16 },
   { min: 100, max: Infinity, mod: 4, die: 12, storage: 20 },
+];
+
+const KINGDOM_MILESTONES = [
+  { id: 'first-expansion', name: 'First Expansion', xp: 10, condition: k => k.size >= 2 },
+  { id: 'growing-reputation', name: 'Growing Reputation', xp: 5, condition: k => k.fame >= 5 }
 ];
 
 const STRUCTURE_COLORS = {
@@ -1159,6 +1164,7 @@ const DEFAULT_KINGDOM_DATA = {
   name: "Silverwood",
   level: 1,
   xp: 0,
+  milestones: {},
   size: 1,
   farmlandHexes: [],
   capital: "Stag's Rest",
@@ -1624,6 +1630,19 @@ calculateControlDC() {
   }
 };
 
+const MilestoneService = {
+  checkMilestones() {
+    if (!kingdom.milestones) kingdom.milestones = {};
+    KINGDOM_MILESTONES.forEach(ms => {
+      if (!kingdom.milestones[ms.id] && ms.condition(kingdom)) {
+        kingdom.milestones[ms.id] = true;
+        kingdom.xp += ms.xp;
+        ErrorHandler.showSuccess(`${ms.name} milestone achieved! Gained ${ms.xp} XP.`);
+      }
+    });
+  }
+};
+
 const SaveService = {
   save() {
     return ErrorHandler.withErrorHandling(() => {
@@ -1926,6 +1945,7 @@ const TurnService = {
         history.unshift(historyEntry);
         if (history.length > CONFIG.MAX_HISTORY_ENTRIES) history.pop();
 
+        MilestoneService.checkMilestones();
         SaveService.save();
         this.clearTurn();
         if (typeof document !== 'undefined') UI.renderAll();
@@ -2102,9 +2122,13 @@ const TurnService = {
       kingdom.eventCheckModifier = 0;
       const d100Roll = Math.floor(Math.random() * 100) + 1;
       const event = RANDOM_KINGDOM_EVENTS.find(e => d100Roll >= e.min && d100Roll <= e.max);
-      
+
       if (event) {
         turnData.currentEvent = event.name;
+        if (event.xp) {
+          turnData.turnXP = (turnData.turnXP || 0) + event.xp;
+          UIkit.notification({ message: `Gained ${event.xp} XP from ${event.name}.`, status: 'success' });
+        }
         UIkit.modal.alert(`<h4>Event! (d100 = ${d100Roll})</h4><p>Your kingdom experiences the following event: <strong>${event.name}</strong></p>`);
       }
     }
@@ -3693,6 +3717,8 @@ const EventHandlers = {
         if (activityName === "Claim Hex") {
           if (!TurnService.canAttemptClaimHex()) return false;
           turnData.claimHexAttempts++;
+          kingdom.xp += 10;
+          UIkit.notification({ message: 'Hex claimed! Gained 10 XP.', status: 'success' });
         } else if (category === "leadership") {
           if (!TurnService.canAttemptLeadershipActivity()) return false;
           turnData.leadershipActivitiesUsed++;
@@ -4079,6 +4105,7 @@ if (typeof module !== "undefined" && module.exports) {
     getKingdom,
     setKingdom,
     getTurnData,
-    setTurnData
+    setTurnData,
+    MilestoneService
   };
 }
