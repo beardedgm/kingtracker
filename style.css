@@ -104,3 +104,21 @@
 .preview-invalid {
     outline: 2px solid #f0506e;
 }
+
+/* Responsive adjustments for small screens */
+@media (max-width: 600px) {
+    .urban-grid {
+        gap: 2px;
+        overflow-x: auto;
+    }
+    .grid-lot {
+        padding: 4px;
+        min-width: 36px;
+    }
+}
+
+@media (max-width: 360px) {
+    .grid-lot {
+        font-size: 0.6rem;
+    }
+}
