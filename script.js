@@ -1627,6 +1627,16 @@ calculateControlDC() {
     } else {
       kingdom[commodityType] = newTotal;
     }
+  },
+
+  applyAbilityBoost(abilityName) {
+    if (!abilityName) return;
+    const key = `base${abilityName.charAt(0).toUpperCase()}${abilityName.slice(1)}`;
+    if (typeof kingdom[key] !== 'number') return;
+    const current = kingdom[key];
+    const increase = current >= 18 ? 1 : 2;
+    kingdom[key] = current + increase;
+    ErrorHandler.showSuccess(`${abilityName.charAt(0).toUpperCase() + abilityName.slice(1)} increased to ${kingdom[key]}`);
   }
 };
 
@@ -2886,12 +2896,40 @@ modal.$el.addEventListener('hide', () => {
     }
 
     modal.$el.querySelector('#level-up-finish-btn').addEventListener('click', () => {
-        kingdom.level = newLevel;
-        kingdom.xp -= CONFIG.XP_CAP;
-        SaveService.save();
-        if (typeof document !== 'undefined') UI.renderAll();
-        modal.hide();
-        ErrorHandler.showSuccess(`Kingdom advancement to Level ${newLevel} complete!`);
+        const finalize = () => {
+            kingdom.level = newLevel;
+            kingdom.xp -= CONFIG.XP_CAP;
+            SaveService.save();
+            if (typeof document !== 'undefined') UI.renderAll();
+            modal.hide();
+            ErrorHandler.showSuccess(`Kingdom advancement to Level ${newLevel} complete!`);
+        };
+
+        if (advancement.hasOwnProperty('abilityBoosts')) {
+            const options = ['culture','economy','loyalty','stability'];
+            const chosen = [];
+            const promptBoost = (count) => {
+                UIkit.modal.prompt(`Select ability boost ${count} (${options.join(', ')}):`).then(val => {
+                    const ability = val ? val.toLowerCase().trim() : '';
+                    if (!options.includes(ability) || chosen.includes(ability)) {
+                        ErrorHandler.showError('Invalid or duplicate ability.');
+                        promptBoost(count);
+                        return;
+                    }
+                    KingdomService.applyAbilityBoost(ability);
+                    chosen.push(ability);
+                    if (count < 4) {
+                        promptBoost(count + 1);
+                    } else {
+                        advancement.abilityBoosts = chosen.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ');
+                        finalize();
+                    }
+                });
+            };
+            promptBoost(1);
+        } else {
+            finalize();
+        }
     });
   },
 
