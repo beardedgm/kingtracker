@@ -2840,7 +2840,83 @@ const ModalService = {
     });
   },
 
-  showLevelUp(newLevel) {
+  showLevelUpSequence(newLevel) {
+    ModalCleanup.ensureCleanState();
+    const advancement = kingdom.advancement[`lvl${newLevel}`];
+    if (!advancement) {
+      UIkit.modal.alert("No advancement data found for this level.");
+      return;
+    }
+    const steps = ['summary'];
+    if (advancement.hasOwnProperty('skillIncrease') && advancement.skillIncrease === '') steps.push('skill');
+    if (advancement.hasOwnProperty('feat') && advancement.feat === '') steps.push('feat');
+    steps.push('finalize');
+    this._levelUpFlow = { level: newLevel, advancement, steps };
+    this.processNextChoice();
+  },
+
+  processNextChoice() {
+    if (!this._levelUpFlow || this._levelUpFlow.steps.length === 0) {
+      this._levelUpFlow = null;
+      return;
+    }
+    const next = this._levelUpFlow.steps.shift();
+    switch (next) {
+      case 'summary':
+        this.showLevelUp(this._levelUpFlow.level, true);
+        break;
+      case 'skill':
+        this.showSkillIncrease(this._levelUpFlow.level, true);
+        break;
+      case 'feat':
+        this.showFeatSelection(this._levelUpFlow.level, true);
+        break;
+      case 'finalize':
+        this.finalizeLevelUp(this._levelUpFlow.level);
+        this._levelUpFlow = null;
+        break;
+    }
+  },
+
+  finalizeLevelUp(newLevel) {
+    const advancement = kingdom.advancement[`lvl${newLevel}`];
+    const finalize = () => {
+      kingdom.level = newLevel;
+      KingdomService.updateRuinThresholds();
+      kingdom.xp -= CONFIG.XP_CAP;
+      SaveService.save();
+      if (typeof document !== 'undefined') UI.renderAll();
+      ErrorHandler.showSuccess(`Kingdom advancement to Level ${newLevel} complete!`);
+    };
+
+    if (advancement && advancement.hasOwnProperty('abilityBoosts')) {
+      const options = ['culture','economy','loyalty','stability'];
+      const chosen = [];
+      const promptBoost = (count) => {
+        UIkit.modal.prompt(`Select ability boost ${count} (${options.join(', ')}):`).then(val => {
+          const ability = val ? val.toLowerCase().trim() : '';
+          if (!options.includes(ability) || chosen.includes(ability)) {
+            ErrorHandler.showError('Invalid or duplicate ability.');
+            promptBoost(count);
+            return;
+          }
+          KingdomService.applyAbilityBoost(ability);
+          chosen.push(ability);
+          if (count < 4) {
+            promptBoost(count + 1);
+          } else {
+            advancement.abilityBoosts = chosen.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ');
+            finalize();
+          }
+        });
+      };
+      promptBoost(1);
+    } else {
+      finalize();
+    }
+  },
+
+  showLevelUp(newLevel, sequenceMode = false) {
         ModalCleanup.ensureCleanState();
 
     const advancement = kingdom.advancement[`lvl${newLevel}`];
@@ -2859,12 +2935,18 @@ const ModalService = {
     const skillIncreaseDone = advancement.skillIncrease !== '';
     const featDone = advancement.feat !== '';
 
-    let choicesHtml = '';
-    if (advancement.hasOwnProperty('skillIncrease')) {
-        choicesHtml += `<button class="uk-button uk-button-secondary uk-margin-small-right" id="level-up-skill-btn" ${skillIncreaseDone ? 'disabled' : ''}>Choose Skill Increase</button>`;
-    }
-    if (advancement.hasOwnProperty('feat')) {
-        choicesHtml += `<button class="uk-button uk-button-secondary" id="level-up-feat-btn" ${featDone ? 'disabled' : ''}>Choose Feat</button>`;
+    let bodyExtra = '';
+    let footerHtml = '';
+    if (sequenceMode) {
+        footerHtml = `<button class="uk-button uk-button-primary" id="level-up-next-btn">Continue</button>`;
+    } else {
+        if (advancement.hasOwnProperty('skillIncrease')) {
+            bodyExtra += `<button class="uk-button uk-button-secondary uk-margin-small-right" id="level-up-skill-btn" ${skillIncreaseDone ? 'disabled' : ''}>Choose Skill Increase</button>`;
+        }
+        if (advancement.hasOwnProperty('feat')) {
+            bodyExtra += `<button class="uk-button uk-button-secondary" id="level-up-feat-btn" ${featDone ? 'disabled' : ''}>Choose Feat</button>`;
+        }
+        footerHtml = `<button class="uk-button uk-button-primary" id="level-up-finish-btn">Finish Level Up</button>`;
     }
 
     const modalContent = `
@@ -2874,11 +2956,11 @@ const ModalService = {
         <div class="uk-modal-body">
             <p>You gain the following benefits:</p>
             ${benefitsHtml}
-            <p>Please make your selections below. Choices are permanent.</p>
-            ${choicesHtml}
+            ${sequenceMode ? '' : '<p>Please make your selections below. Choices are permanent.</p>'}
+            ${bodyExtra}
         </div>
         <div class="uk-modal-footer uk-text-right">
-            <button class="uk-button uk-button-primary" id="level-up-finish-btn">Finish Level Up</button>
+            ${footerHtml}
         </div>`;
 
     const modal = UIkit.modal.dialog(modalContent);
@@ -2889,62 +2971,36 @@ modal.$el.addEventListener('hide', () => {
         }, 300);
     });
 
-    const featButton = modal.$el.querySelector('#level-up-feat-btn');
-    if (featButton) {
-        featButton.addEventListener('click', () => {
-            this.showFeatSelection(newLevel);
+    if (sequenceMode) {
+        modal.$el.querySelector('#level-up-next-btn').addEventListener('click', () => {
             modal.hide();
+            this.processNextChoice();
         });
-    }
-
-    const skillButton = modal.$el.querySelector('#level-up-skill-btn');
-    if (skillButton) {
-        skillButton.addEventListener('click', () => {
-            this.showSkillIncrease(newLevel);
-            modal.hide();
-        });
-    }
-
-    modal.$el.querySelector('#level-up-finish-btn').addEventListener('click', () => {
-        const finalize = () => {
-            kingdom.level = newLevel;
-            KingdomService.updateRuinThresholds();
-            kingdom.xp -= CONFIG.XP_CAP;
-            SaveService.save();
-            if (typeof document !== 'undefined') UI.renderAll();
-            modal.hide();
-            ErrorHandler.showSuccess(`Kingdom advancement to Level ${newLevel} complete!`);
-        };
-
-        if (advancement.hasOwnProperty('abilityBoosts')) {
-            const options = ['culture','economy','loyalty','stability'];
-            const chosen = [];
-            const promptBoost = (count) => {
-                UIkit.modal.prompt(`Select ability boost ${count} (${options.join(', ')}):`).then(val => {
-                    const ability = val ? val.toLowerCase().trim() : '';
-                    if (!options.includes(ability) || chosen.includes(ability)) {
-                        ErrorHandler.showError('Invalid or duplicate ability.');
-                        promptBoost(count);
-                        return;
-                    }
-                    KingdomService.applyAbilityBoost(ability);
-                    chosen.push(ability);
-                    if (count < 4) {
-                        promptBoost(count + 1);
-                    } else {
-                        advancement.abilityBoosts = chosen.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ');
-                        finalize();
-                    }
-                });
-            };
-            promptBoost(1);
-        } else {
-            finalize();
+    } else {
+        const featButton = modal.$el.querySelector('#level-up-feat-btn');
+        if (featButton) {
+            featButton.addEventListener('click', () => {
+                modal.hide();
+                this.showFeatSelection(newLevel);
+            });
         }
-    });
+
+        const skillButton = modal.$el.querySelector('#level-up-skill-btn');
+        if (skillButton) {
+            skillButton.addEventListener('click', () => {
+                modal.hide();
+                this.showSkillIncrease(newLevel);
+            });
+        }
+
+        modal.$el.querySelector('#level-up-finish-btn').addEventListener('click', () => {
+            modal.hide();
+            this.finalizeLevelUp(newLevel);
+        });
+    }
   },
 
-  showSkillIncrease(level) {
+  showSkillIncrease(level, continueSequence = false) {
     let skillOptionsHtml = '<ul class="uk-list uk-list-divider">';
 
     for (const skillName in kingdom.skills) {
@@ -2977,12 +3033,16 @@ modal.$el.addEventListener('hide', () => {
             kingdom.advancement[`lvl${level}`].skillIncrease = skillName;
             SaveService.save();
             modal.hide();
-            this.showLevelUp(level);
+            if (continueSequence) {
+                this.processNextChoice();
+            } else {
+                this.showLevelUp(level);
+            }
         }
     });
   },
 
-  showFeatSelection(level) {
+  showFeatSelection(level, continueSequence = false) {
     let featOptionsHtml = '<ul class="uk-list uk-list-divider">';
     
     const eligibleFeats = KINGDOM_FEATS.filter(feat => 
@@ -3022,7 +3082,11 @@ modal.$el.addEventListener('hide', () => {
             kingdom.advancement[`lvl${level}`].feat = featName;
             SaveService.save();
             modal.hide();
-            this.showLevelUp(level);
+            if (continueSequence) {
+                this.processNextChoice();
+            } else {
+                this.showLevelUp(level);
+            }
         }
     });
   },
@@ -3722,7 +3786,7 @@ const EventHandlers = {
       ErrorHandler.showError("Not enough XP to level up.");
       return;
     }
-    ModalService.showLevelUp(kingdom.level + 1);
+    ModalService.showLevelUpSequence(kingdom.level + 1);
   },
 
   handleKingdomInputChange(e) {
