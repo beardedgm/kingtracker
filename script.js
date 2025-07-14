@@ -3530,7 +3530,14 @@ const CreationService = {
 
 const EventHandlers = {
   handleResourceUpdate(resource, action) {
-    if (action === "increase") kingdom[resource]++;
+    const commodities = ["food", "lumber", "luxuries", "ore", "stone"];
+    if (action === "increase") {
+      if (commodities.includes(resource)) {
+        KingdomService.applyCommodityGain(resource, 1);
+      } else {
+        kingdom[resource]++;
+      }
+    }
     else if (action === "decrease") kingdom[resource] = Math.max(0, kingdom[resource] - 1);
     SaveService.save();
     UI.renderKingdomSheet();
