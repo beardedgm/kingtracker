@@ -336,6 +336,39 @@ function testRPConversion() {
   assert.strictEqual(getKingdom().xp, startXP + 5, 'unspent RP converted to XP');
 }
 
+function createSkills(names) {
+  const obj = {};
+  names.forEach(n => { obj[n] = { prof: 0, item: 0, status: 0, circ: 0, other: 0 }; });
+  getKingdom().skills = obj;
+}
+
+function setLeaders(investedRoles) {
+  const roles = ['ruler','counselor','general','emissary','magister','treasurer','viceroy','warden'];
+  getKingdom().leaders = {};
+  roles.forEach(r => {
+    const invested = investedRoles.includes(r);
+    getKingdom().leaders[r] = { name: r, isInvested: invested, status: invested ? 'PC' : 'Vacant' };
+  });
+}
+
+function testStatusBonus() {
+  setupBasicKingdom(1);
+  getKingdom().baseLoyalty = 10;
+  getKingdom().ruins = { corruption:{penalty:0}, crime:{penalty:0}, decay:{penalty:0}, strife:{penalty:0} };
+  createSkills(['Warfare']);
+  setLeaders(['ruler']);
+  assert.strictEqual(KingdomService.getStatusBonusForAbility('loyalty'), 1, 'level 1 invested gives +1');
+
+  const mods = KingdomService.calculateSkillModifiers();
+  assert.strictEqual(mods.Warfare, 1, 'status bonus applied to skill');
+
+  getKingdom().level = 10;
+  assert.strictEqual(KingdomService.getStatusBonusForAbility('loyalty'), 2, 'level 10 invested gives +2');
+
+  getKingdom().level = 16;
+  assert.strictEqual(KingdomService.getStatusBonusForAbility('loyalty'), 3, 'level 16 invested gives +3');
+}
+
 try {
   testOvercrowding();
   testCanAttemptClaimHex();
@@ -346,6 +379,7 @@ try {
   testCanUpgradeSettlement();
   testConsumption();
   testRPConversion();
+  testStatusBonus();
   console.log('All tests passed.');
 } catch (err) {
   console.error('Test failed:', err);
