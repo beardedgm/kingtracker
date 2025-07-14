@@ -475,8 +475,11 @@ function testStatusBonus() {
   const mods = KingdomService.calculateSkillModifiers();
   assert.strictEqual(mods.Warfare, 1, 'status bonus applied to skill');
 
-  getKingdom().level = 10;
-  assert.strictEqual(KingdomService.getStatusBonusForAbility('loyalty'), 2, 'level 10 invested gives +2');
+  getKingdom().level = 7;
+  assert.strictEqual(KingdomService.getStatusBonusForAbility('loyalty'), 1, 'level 7 invested gives +1');
+
+  getKingdom().level = 8;
+  assert.strictEqual(KingdomService.getStatusBonusForAbility('loyalty'), 2, 'level 8 invested gives +2');
 
   getKingdom().level = 16;
   assert.strictEqual(KingdomService.getStatusBonusForAbility('loyalty'), 3, 'level 16 invested gives +3');
