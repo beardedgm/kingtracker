@@ -258,6 +258,10 @@ function getBlockIndex(lotIndex, gridSize) {
   return Math.floor(x / 3) + Math.floor(y / 3) * (gridSize / 3);
 }
 
+function getSettlementInfluenceHexes(settlement) {
+  return settlement.influenceHexes || [];
+}
+
 const AVAILABLE_STRUCTURES = [
     // --- ONE-LOT BUILDINGS ---
     {
@@ -1156,7 +1160,7 @@ const DEFAULT_KINGDOM_DATA = {
   level: 1,
   xp: 0,
   size: 1,
-  farmlandHexes: 0,
+  farmlandHexes: [],
   capital: "Stag's Rest",
   fame: 1,
   infamy: 0,
@@ -1404,13 +1408,23 @@ const KingdomService = {
         if (builtBlocks >= 10) settlementBaseConsumption = 6; // Metropolis (10+ blocks)
         else if (builtBlocks >= 9) settlementBaseConsumption = 4; // City (9 blocks)
         else if (builtBlocks >= 4) settlementBaseConsumption = 2; // Town (4 blocks)
-        totalConsumption += settlementBaseConsumption;
+
+        const influenceHexes = getSettlementInfluenceHexes(settlement);
+        const farmlandCount = Array.isArray(kingdom.farmlandHexes) ?
+          kingdom.farmlandHexes.filter(hex => {
+            if (hex.settlementId && hex.settlementId === settlement.id) return true;
+            if (hex.x != null && hex.y != null) {
+              return influenceHexes.some(h => h.x === hex.x && h.y === hex.y);
+            }
+            return false;
+          }).length : 0;
+
+        totalConsumption += Math.max(0, settlementBaseConsumption - farmlandCount);
     });
 
     // Apply all modifiers at the kingdom level
     totalConsumption += bonuses.consumptionMod; // From all structures (Mills, Stockyards, Sewers)
     totalConsumption += kingdom.armies.reduce((total, army) => total + (army.consumption || 0), 0);
-    totalConsumption -= kingdom.farmlandHexes || 0;
     totalConsumption += turnData.turnConsumptionModifier || 0; // From turn-specific events
     
     return { food: Math.max(0, totalConsumption) };
@@ -3987,6 +4001,7 @@ if (typeof module !== "undefined" && module.exports) {
     AVAILABLE_STRUCTURES,
     TurnService,
     SettlementService,
+    getSettlementInfluenceHexes,
     getKingdom,
     setKingdom,
     getTurnData,
