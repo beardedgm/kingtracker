@@ -1639,6 +1639,58 @@ calculateControlDC() {
     }
   },
 
+  validateKingdomState() {
+    const resources = ["treasury", "food", "lumber", "luxuries", "ore", "stone"];
+    resources.forEach(res => {
+      if (typeof kingdom[res] !== 'number' || kingdom[res] < 0) {
+        if (kingdom[res] < 0) ErrorHandler.showError(`${res} cannot be negative. Resetting to 0.`);
+        kingdom[res] = Math.max(0, parseInt(kingdom[res]) || 0);
+      }
+    });
+
+    const abilities = ["baseCulture", "baseEconomy", "baseLoyalty", "baseStability"];
+    abilities.forEach(ab => {
+      let val = parseInt(kingdom[ab]);
+      if (isNaN(val)) val = 10;
+      if (val < 8) {
+        ErrorHandler.showError(`${ab} increased to minimum 8.`);
+        val = 8;
+      } else if (val > 30) {
+        ErrorHandler.showError(`${ab} reduced to maximum 30.`);
+        val = 30;
+      }
+      kingdom[ab] = val;
+    });
+
+    if (typeof kingdom.unrest !== 'number' || kingdom.unrest < 0) {
+      if (kingdom.unrest < 0) ErrorHandler.showError('Unrest cannot be negative. Resetting to 0.');
+      kingdom.unrest = Math.max(0, parseInt(kingdom.unrest) || 0);
+    }
+
+    if (typeof kingdom.level !== 'number' || kingdom.level < 1) {
+      ErrorHandler.showError('Level must be at least 1.');
+      kingdom.level = 1;
+    } else if (kingdom.level > 20) {
+      ErrorHandler.showError('Level capped at 20.');
+      kingdom.level = 20;
+    }
+
+    if (typeof kingdom.size !== 'number' || kingdom.size < 0) {
+      if (kingdom.size < 0) ErrorHandler.showError('Size cannot be negative.');
+      kingdom.size = Math.max(0, parseInt(kingdom.size) || 0);
+    }
+
+    if (typeof kingdom.xp !== 'number' || kingdom.xp < 0) {
+      if (kingdom.xp < 0) ErrorHandler.showError('XP cannot be negative.');
+      kingdom.xp = Math.max(0, parseInt(kingdom.xp) || 0);
+    }
+
+    if (kingdom.xp > CONFIG.XP_CAP) {
+      ErrorHandler.showError(`XP cannot exceed ${CONFIG.XP_CAP}.`);
+      kingdom.xp = CONFIG.XP_CAP;
+    }
+  },
+
   applyAbilityBoost(abilityName) {
     if (!abilityName) return;
     const key = `base${abilityName.charAt(0).toUpperCase()}${abilityName.slice(1)}`;
@@ -1966,6 +2018,7 @@ const TurnService = {
         if (history.length > CONFIG.MAX_HISTORY_ENTRIES) history.pop();
 
         MilestoneService.checkMilestones();
+        KingdomService.validateKingdomState();
         SaveService.save();
         this.clearTurn();
         if (typeof document !== 'undefined') UI.renderAll();
@@ -3301,6 +3354,7 @@ const SettlementService = {
                 }
             });
             ErrorHandler.showSuccess("Lot cleared.");
+            KingdomService.validateKingdomState();
             SaveService.save();
             if (typeof document !== 'undefined') {
                 UI.renderAll();
@@ -3354,6 +3408,7 @@ const SettlementService = {
             ErrorHandler.showSuccess(`${structure.name} built successfully!`);
         }
 
+        KingdomService.validateKingdomState();
         SaveService.save();
         if (typeof document !== 'undefined') {
             UI.renderAll();
@@ -3406,6 +3461,7 @@ const SettlementService = {
         ErrorHandler.showSuccess(`${structure.name} built successfully!`);
     }
 
+    KingdomService.validateKingdomState();
     SaveService.save();
     if (typeof document !== 'undefined') {
         UI.renderAll();
@@ -3764,6 +3820,7 @@ const EventHandlers = {
       }
     }
     else if (action === "decrease") kingdom[resource] = Math.max(0, kingdom[resource] - 1);
+    KingdomService.validateKingdomState();
     SaveService.save();
     UI.renderKingdomSheet();
   },
